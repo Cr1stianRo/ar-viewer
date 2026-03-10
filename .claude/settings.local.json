@@ -9,7 +9,9 @@
       "Bash(curl:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "WebFetch(domain:ar-js-org.github.io)",
+      "WebFetch(domain:medium.com)"
     ]
   }
 }

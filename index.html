@@ -310,6 +310,8 @@
             maxDetectionRate: 60;
             canvasWidth: 640;
             canvasHeight: 480;
+            minConfidence: 0.6;
+            cameraParametersUrl: https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat;
             facingMode: environment;"
       renderer="logarithmicDepthBuffer: true;
                 antialias: true;
@@ -326,15 +328,16 @@
         <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
       </a-assets>
 
-      <!-- Marcador de matriz #3 (HAMMING 3x3) -->
+      <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking optimizado -->
       <a-marker
         type="barcode"
         value="3"
         id="marker-3"
+        emitevents="true"
         smooth="true"
-        smoothCount="15"
-        smoothTolerance="0.01"
-        smoothThreshold="3"
+        smoothCount="20"
+        smoothTolerance="0.005"
+        smoothThreshold="4"
       >
 
         <!-- Base: caja translúcida -->
@@ -434,7 +437,10 @@
         };
       }
 
-      // Detectar cuando el marcador es encontrado/perdido
+      // Persistent tracking - mantiene contenido visible por 2seg al perder marcador
+      let markerLostTimeout = null;
+      let isMarkerVisible = false;
+
       setTimeout(() => {
         const marker = document.getElementById('marker-3');
         if (!marker) {
@@ -442,20 +448,36 @@
           return;
         }
 
-        console.log('✅ Marcador #3 registrado, esperando detección...');
+        console.log('✅ Marcador #3 registrado con persistent tracking activado');
 
         marker.addEventListener('markerFound', () => {
-          console.log('🎯 MARCADOR #3 DETECTADO');
+          // Limpiar timeout si estaba esperando ocultar
+          if (markerLostTimeout) {
+            clearTimeout(markerLostTimeout);
+            markerLostTimeout = null;
+          }
+
+          isMarkerVisible = true;
+          console.log('🎯 MARCADOR #3 DETECTADO - TRACKING ACTIVO');
           document.getElementById('status-dot').classList.add('found');
-          document.getElementById('status-text').textContent = 'MARCADOR #3 DETECTADO';
+          document.getElementById('status-text').textContent = 'TRACKING ACTIVO';
           document.getElementById('instruction-card').classList.add('hidden');
         });
 
         marker.addEventListener('markerLost', () => {
-          console.log('⚠️ Marcador #3 perdido');
-          document.getElementById('status-dot').classList.remove('found');
-          document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #3';
-          document.getElementById('instruction-card').classList.remove('hidden');
+          console.log('⏳ Marcador perdido temporalmente - esperando 2 seg...');
+
+          // No ocultar inmediatamente, esperar 2 segundos por si vuelve a detectar
+          markerLostTimeout = setTimeout(() => {
+            if (!isMarkerVisible) {
+              console.log('❌ Marcador perdido definitivamente');
+              document.getElementById('status-dot').classList.remove('found');
+              document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #3';
+              document.getElementById('instruction-card').classList.remove('hidden');
+            }
+          }, 2000); // Mantener visible 2 segundos
+
+          isMarkerVisible = false;
         });
       }, 2000);
     }
