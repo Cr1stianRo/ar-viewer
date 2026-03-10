@@ -6,34 +6,54 @@
   <title>AR Viewer — Marcador Físico</title>
 
   <script>
-    // Forzar cámara trasera principal (no wide, no telefoto)
-    // Se ejecuta ANTES de que AR.js tome control de la cámara
-    window._arCameraDeviceId = null;
+    // Forzar cámara trasera principal (no wide, no telefoto) - Optimizado para Samsung S21 FE
+    window._arVideoConstraints = null;
 
     async function detectMainCamera() {
       try {
-        // Primero pedimos acceso genérico para que el navegador liste dispositivos
+        // Primero pedimos acceso genérico
         const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         tempStream.getTracks().forEach(t => t.stop());
 
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cameras = devices.filter(d => d.kind === 'videoinput');
 
-        // En Android, la cámara principal suele ser la primera con facingMode environment
-        // Filtramos por labels comunes de wide/ultrawide para excluirlas
-        const wideKeywords = ['wide', 'ultra', 'gran', 'telephoto', 'tele', 'depth', 'macro', 'front'];
-        
-        const mainCam = cameras.find(cam => {
+        console.log('📷 Cámaras disponibles:');
+        cameras.forEach((cam, i) => console.log(`  ${i}: ${cam.label}`));
+
+        // Filtramos cámaras wide/ultra/tele (Samsung S21 FE tiene wide como cámara 0)
+        const excludeKeywords = ['wide', 'ultra', 'ultra-wide', 'telephoto', 'tele', 'depth', 'macro', 'front', '0.6'];
+
+        // Buscamos la cámara principal (normalmente es la segunda trasera en Samsung)
+        let mainCam = cameras.find((cam, idx) => {
           const label = cam.label.toLowerCase();
-          return !wideKeywords.some(kw => label.includes(kw));
+          const isBack = label.includes('back') || label.includes('rear') || label.includes('camera2 0');
+          const notExcluded = !excludeKeywords.some(kw => label.includes(kw));
+          return isBack && notExcluded;
         });
 
+        // Fallback: si no encontramos, tomamos la primera trasera que no sea wide
+        if (!mainCam) {
+          mainCam = cameras.find(cam => {
+            const label = cam.label.toLowerCase();
+            return !excludeKeywords.some(kw => label.includes(kw)) && !label.includes('front');
+          });
+        }
+
         if (mainCam) {
-          window._arCameraDeviceId = mainCam.deviceId;
-          console.log('Cámara seleccionada:', mainCam.label);
+          console.log('✅ Cámara principal seleccionada:', mainCam.label);
+          // Configuramos constraints específicos para AR.js
+          window._arVideoConstraints = {
+            deviceId: { exact: mainCam.deviceId },
+            facingMode: 'environment',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          };
+        } else {
+          console.warn('⚠️ No se detectó cámara principal, usando default');
         }
       } catch(e) {
-        console.warn('No se pudo detectar cámara principal:', e);
+        console.warn('❌ Error detectando cámara:', e);
       }
     }
   </script>
@@ -273,7 +293,7 @@
   <div id="permission-screen">
     <div class="big-icon">📷</div>
     <h1>AR VIEWER</h1>
-    <p>Apunta tu cámara al <strong style="color:#00ff88">marcador #4</strong> para ver el modelo 3D en realidad aumentada.</p>
+    <p>Apunta tu cámara al <strong style="color:#00ff88">marcador #3</strong> para ver el modelo 3D en realidad aumentada.</p>
     <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
@@ -388,7 +408,7 @@
     <!-- Instruction card -->
     <div id="instruction-card">
       <span class="icon">🎯</span>
-      <p>Apunta la cámara al <strong>marcador #4</strong><br>mantenlo bien iluminado y a 15-30cm de distancia</p>
+      <p>Apunta la cámara al <strong>marcador #3</strong><br>mantenlo bien iluminado y a 15-30cm de distancia</p>
     </div>
   </div>
 
@@ -401,34 +421,40 @@
       document.getElementById('ar-container').style.display = 'block';
       document.getElementById('ui-overlay').style.display = 'block';
 
-      // Si encontramos un deviceId específico, lo inyectamos en AR.js
-      if (window._arCameraDeviceId) {
-        const scene = document.querySelector('a-scene');
-        const currentArjs = scene.getAttribute('arjs');
-        scene.setAttribute('arjs', currentArjs + ` deviceId: ${window._arCameraDeviceId};`);
+      // Inyectar constraints de video si detectamos una cámara específica
+      if (window._arVideoConstraints) {
+        // Interceptamos getUserMedia para forzar nuestros constraints
+        const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = function(constraints) {
+          if (constraints && constraints.video) {
+            console.log('🔧 Aplicando constraints personalizados:', window._arVideoConstraints);
+            constraints.video = window._arVideoConstraints;
+          }
+          return originalGetUserMedia(constraints);
+        };
       }
 
       // Detectar cuando el marcador es encontrado/perdido
       setTimeout(() => {
-        const marker = document.getElementById('marker-4');
+        const marker = document.getElementById('marker-3');
         if (!marker) {
-          console.error('❌ Marcador #4 no encontrado en el DOM');
+          console.error('❌ Marcador #3 no encontrado en el DOM');
           return;
         }
 
-        console.log('✅ Marcador #4 registrado, esperando detección...');
+        console.log('✅ Marcador #3 registrado, esperando detección...');
 
         marker.addEventListener('markerFound', () => {
-          console.log('🎯 MARCADOR #4 DETECTADO');
+          console.log('🎯 MARCADOR #3 DETECTADO');
           document.getElementById('status-dot').classList.add('found');
-          document.getElementById('status-text').textContent = 'MARCADOR #4 DETECTADO';
+          document.getElementById('status-text').textContent = 'MARCADOR #3 DETECTADO';
           document.getElementById('instruction-card').classList.add('hidden');
         });
 
         marker.addEventListener('markerLost', () => {
-          console.log('⚠️ Marcador #4 perdido');
+          console.log('⚠️ Marcador #3 perdido');
           document.getElementById('status-dot').classList.remove('found');
-          document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #4';
+          document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #3';
           document.getElementById('instruction-card').classList.remove('hidden');
         });
       }, 2000);
