@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comparación de Marcadores AR</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #0a0a0a;
+      color: #fff;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      color: #00ff88;
+      font-size: 28px;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 14px;
+    }
+
+    .alert {
+      background: rgba(255, 100, 100, 0.1);
+      border: 2px solid rgba(255, 100, 100, 0.5);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .alert h2 {
+      color: #ff6464;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .alert p {
+      color: #ccc;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .type-section {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 25px;
+    }
+
+    .type-section h2 {
+      color: #00ff88;
+      font-size: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .type-info {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #aaa;
+    }
+
+    .markers-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    .marker-item {
+      text-align: center;
+    }
+
+    .marker-box {
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .marker-box img {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+
+    .marker-label {
+      font-size: 11px;
+      color: #888;
+      letter-spacing: 1px;
+    }
+
+    .highlight-4 {
+      border: 3px solid #00ff88;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+    }
+
+    .highlight-4 .marker-label {
+      color: #00ff88;
+      font-weight: 700;
+    }
+
+    .config-box {
+      background: rgba(0, 255, 136, 0.1);
+      border: 2px solid rgba(0, 255, 136, 0.3);
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+
+    .config-box h3 {
+      color: #00ff88;
+      font-size: 16px;
+      margin-bottom: 15px;
+    }
+
+    .config-box pre {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+    }
+
+    .config-box code {
+      color: #00ff88;
+    }
+
+    @media (max-width: 900px) {
+      .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .markers-row {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 COMPARACIÓN DE MARCADORES</h1>
+    <p class="subtitle">¿Cuál coincide con tu PDF "marcadores_ar.pdf"?</p>
+
+    <div class="alert">
+      <h2>⚠️ IMPORTANTE</h2>
+      <p>
+        <strong>Compara tus marcadores impresos con las imágenes de abajo.</strong><br>
+        Los patrones dentro del cuadrado deben verse EXACTAMENTE iguales.<br>
+        Una vez que identifiques cuál tipo tienes, te diré qué configuración usar.
+      </p>
+    </div>
+
+    <div class="comparison-grid">
+      <!-- TIPO 1: 3x3 BÁSICO -->
+      <div class="type-section">
+        <h2>TIPO A: 3x3 (Básico)</h2>
+        <div class="type-info">
+          <strong>Características:</strong><br>
+          • Sin corrección de errores<br>
+          • Patrones más simples<br>
+          • Soporta valores 0-63<br>
+          • Configuración: <code>3x3</code>
+        </div>
+
+        <div class="markers-row">
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/0.png" alt="3x3 #0">
+            </div>
+            <div class="marker-label">#0</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/1.png" alt="3x3 #1">
+            </div>
+            <div class="marker-label">#1</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/2.png" alt="3x3 #2">
+            </div>
+            <div class="marker-label">#2</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/3.png" alt="3x3 #3">
+            </div>
+            <div class="marker-label">#3</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box highlight-4">
+              <img src="marcadores-3x3-basico/4.png" alt="3x3 #4">
+            </div>
+            <div class="marker-label">⭐ #4 ⭐</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/5.png" alt="3x3 #5">
+            </div>
+            <div class="marker-label">#5</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores-3x3-basico/6.png" alt="3x3 #6">
+            </div>
+            <div class="marker-label">#6</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TIPO 2: 3x3 HAMMING63 -->
+      <div class="type-section">
+        <h2>TIPO B: 3x3_HAMMING63</h2>
+        <div class="type-info">
+          <strong>Características:</strong><br>
+          • Con corrección de errores Hamming<br>
+          • Patrones más complejos<br>
+          • Soporta valores 0-7 (máx 8 marcadores)<br>
+          • Configuración: <code>3x3_HAMMING63</code> ← <strong>Actual</strong>
+        </div>
+
+        <div class="markers-row">
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/0.png" alt="HAMMING #0">
+            </div>
+            <div class="marker-label">#0</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/1.png" alt="HAMMING #1">
+            </div>
+            <div class="marker-label">#1</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/2.png" alt="HAMMING #2">
+            </div>
+            <div class="marker-label">#2</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/3.png" alt="HAMMING #3">
+            </div>
+            <div class="marker-label">#3</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box highlight-4">
+              <img src="marcadores/4.png" alt="HAMMING #4">
+            </div>
+            <div class="marker-label">⭐ #4 ⭐</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/5.png" alt="HAMMING #5">
+            </div>
+            <div class="marker-label">#5</div>
+          </div>
+
+          <div class="marker-item">
+            <div class="marker-box">
+              <img src="marcadores/6.png" alt="HAMMING #6">
+            </div>
+            <div class="marker-label">#6</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-box">
+      <h3>📋 ¿Cuál es el tuyo?</h3>
+      <p style="color: #ccc; margin-bottom: 15px; font-size: 13px;">
+        Compara el marcador #4 de tu PDF con las imágenes de arriba y dime cuál se ve igual:
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+          <strong style="color: #00ff88;">Si tienes TIPO A (3x3 básico):</strong>
+          <pre style="margin-top: 10px;">Cambiar en index.html línea 250:
+
+matrixCodeType: <code>3x3</code></pre>
+        </div>
+
+        <div>
+          <strong style="color: #00ff88;">Si tienes TIPO B (HAMMING63):</strong>
+          <pre style="margin-top: 10px;">Ya está configurado correctamente:
+
+matrixCodeType: <code>3x3_HAMMING63</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -3,434 +3,231 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AR Viewer — Marcador Físico</title>
+  <title>AR Diagnóstico — Mapeo de Marcadores</title>
 
   <script>
-    // Forzar cámara trasera principal (no wide, no telefoto)
-    // Se ejecuta ANTES de que AR.js tome control de la cámara
     window._arCameraDeviceId = null;
-
     async function detectMainCamera() {
       try {
-        // Primero pedimos acceso genérico para que el navegador liste dispositivos
         const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         tempStream.getTracks().forEach(t => t.stop());
-
         const devices = await navigator.mediaDevices.enumerateDevices();
         const cameras = devices.filter(d => d.kind === 'videoinput');
-
-        // En Android, la cámara principal suele ser la primera con facingMode environment
-        // Filtramos por labels comunes de wide/ultrawide para excluirlas
         const wideKeywords = ['wide', 'ultra', 'gran', 'telephoto', 'tele', 'depth', 'macro', 'front'];
-        
-        const mainCam = cameras.find(cam => {
-          const label = cam.label.toLowerCase();
-          return !wideKeywords.some(kw => label.includes(kw));
-        });
-
-        if (mainCam) {
-          window._arCameraDeviceId = mainCam.deviceId;
-          console.log('Cámara seleccionada:', mainCam.label);
-        }
-      } catch(e) {
-        console.warn('No se pudo detectar cámara principal:', e);
-      }
+        const mainCam = cameras.find(cam => !wideKeywords.some(kw => cam.label.toLowerCase().includes(kw)));
+        if (mainCam) window._arCameraDeviceId = mainCam.deviceId;
+      } catch(e) {}
     }
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
-  <!-- Componente personalizado de smoothing extra agresivo -->
-  <script>
-    AFRAME.registerComponent('smooth-transform', {
-      schema: {
-        enabled: { type: 'boolean', default: true },
-        factor: { type: 'number', default: 0.15 } // Más bajo = más suave (0.05-0.3)
-      },
-      init: function() {
-        this.targetPosition = new THREE.Vector3();
-        this.targetRotation = new THREE.Euler();
-        this.targetQuaternion = new THREE.Quaternion();
-        this.currentQuaternion = new THREE.Quaternion();
-      },
-      tick: function(time, delta) {
-        if (!this.data.enabled) return;
-
-        const object3D = this.el.object3D;
-        const factor = this.data.factor;
-
-        // Suavizado de posición (lerp)
-        this.targetPosition.copy(object3D.position);
-        object3D.position.lerp(this.targetPosition, factor);
-
-        // Suavizado de rotación (slerp)
-        this.currentQuaternion.copy(object3D.quaternion);
-        this.targetQuaternion.setFromEuler(object3D.rotation);
-        object3D.quaternion.slerpQuaternions(
-          this.currentQuaternion,
-          this.targetQuaternion,
-          factor
-        );
-      }
-    });
-  </script>
-
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Space Mono', monospace; background: #0a0a0a; overflow: hidden; }
 
-    body {
-      font-family: 'Space Mono', monospace;
-      background: #0a0a0a;
-      overflow: hidden;
-    }
-
-    /* Overlay UI */
-    #ui-overlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 100;
-    }
-
-    /* Top bar */
-    #topbar {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
-    }
-
-    #logo {
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 3px;
-      color: #00ff88;
-      text-transform: uppercase;
-    }
-
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #ff4444;
-      box-shadow: 0 0 8px #ff4444;
-      animation: pulse 1.5s ease-in-out infinite;
-      display: inline-block;
-      margin-right: 8px;
-    }
-    #status-dot.found {
-      background: #00ff88;
-      box-shadow: 0 0 8px #00ff88;
-      animation: none;
-    }
-
-    #status-text {
-      font-size: 11px;
-      color: #aaa;
-      letter-spacing: 1px;
-    }
-
-    /* Instruction card */
-    #instruction-card {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10, 10, 10, 0.85);
-      border: 1px solid rgba(0, 255, 136, 0.3);
-      border-radius: 12px;
-      padding: 18px 28px;
-      text-align: center;
-      backdrop-filter: blur(10px);
-      transition: opacity 0.5s ease;
-      min-width: 260px;
-    }
-
-    #instruction-card.hidden {
-      opacity: 0;
-    }
-
-    #instruction-card .icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-      display: block;
-    }
-
-    #instruction-card p {
-      font-size: 12px;
-      color: #ccc;
-      line-height: 1.6;
-      letter-spacing: 0.5px;
-    }
-
-    #instruction-card strong {
-      color: #00ff88;
-    }
-
-    /* Corner scan lines aesthetic */
-    .corner {
-      position: absolute;
-      width: 30px; height: 30px;
-    }
-    .corner-tl { top: 70px; left: 20px; border-top: 2px solid #00ff88; border-left: 2px solid #00ff88; }
-    .corner-tr { top: 70px; right: 20px; border-top: 2px solid #00ff88; border-right: 2px solid #00ff88; }
-    .corner-bl { bottom: 130px; left: 20px; border-bottom: 2px solid #00ff88; border-left: 2px solid #00ff88; }
-    .corner-br { bottom: 130px; right: 20px; border-bottom: 2px solid #00ff88; border-right: 2px solid #00ff88; }
-
-    /* Scan line animation */
-    #scan-line {
-      position: absolute;
-      top: 70px;
-      left: 20px;
-      right: 20px;
-      height: 1px;
-      background: linear-gradient(to right, transparent, #00ff88, transparent);
-      opacity: 0.6;
-      animation: scan 3s linear infinite;
-    }
-
-    @keyframes scan {
-      0%   { top: 70px; opacity: 0.6; }
-      48%  { opacity: 0.6; }
-      50%  { top: calc(100% - 130px); opacity: 0; }
-      51%  { top: 70px; opacity: 0; }
-      52%  { opacity: 0.6; }
-      100% { top: calc(100% - 130px); opacity: 0.6; }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    /* Camera permission overlay */
     #permission-screen {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      gap: 20px;
-      padding: 40px;
-      text-align: center;
+      position: fixed; inset: 0; background: #0a0a0a;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 999; gap: 16px; padding: 40px; text-align: center;
     }
-
-    #permission-screen .big-icon { font-size: 64px; }
-
-    #permission-screen h1 {
-      font-size: 18px;
-      color: #fff;
-      letter-spacing: 2px;
-      font-weight: 700;
-    }
-
-    #permission-screen p {
-      font-size: 13px;
-      color: #888;
-      line-height: 1.7;
-      max-width: 280px;
-    }
-
+    #permission-screen h1 { font-size: 16px; color: #fff; letter-spacing: 2px; }
+    #permission-screen p { font-size: 12px; color: #888; line-height: 1.7; max-width: 300px; }
     #start-btn {
-      pointer-events: all;
-      background: transparent;
-      border: 1px solid #00ff88;
-      color: #00ff88;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      letter-spacing: 3px;
-      padding: 14px 32px;
-      cursor: pointer;
-      text-transform: uppercase;
-      border-radius: 6px;
-      transition: all 0.2s;
-      margin-top: 10px;
+      pointer-events: all; background: transparent; border: 1px solid #00ff88;
+      color: #00ff88; font-family: 'Space Mono', monospace; font-size: 13px;
+      letter-spacing: 3px; padding: 14px 32px; cursor: pointer;
+      text-transform: uppercase; border-radius: 6px; transition: all 0.2s; margin-top: 10px;
     }
+    #start-btn:hover { background: #00ff88; color: #0a0a0a; }
 
-    #start-btn:hover {
-      background: #00ff88;
-      color: #0a0a0a;
+    #ui-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 100;
     }
+    #topbar {
+      position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+    }
+    #logo { font-size: 12px; font-weight: 700; letter-spacing: 3px; color: #00ff88; }
 
-    #hint {
-      font-size: 11px;
-      color: #444;
-      letter-spacing: 1px;
+    /* Panel de resultado — muestra qué marcador se detectó */
+    #resultado {
+      position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.9); border-radius: 12px; padding: 20px 30px;
+      text-align: center; min-width: 280px;
+      border: 2px solid #333; transition: border-color 0.3s;
     }
+    #resultado.activo { border-color: #00ff88; }
+    #resultado .titulo { font-size: 10px; letter-spacing: 3px; color: #555; margin-bottom: 8px; }
+    #resultado .valor {
+      font-size: 28px; font-weight: 700; color: #fff; letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    #resultado .color-badge {
+      display: inline-block; padding: 4px 14px; border-radius: 4px;
+      font-size: 11px; letter-spacing: 2px; margin-top: 6px;
+    }
+    #resultado .subtitulo { font-size: 10px; color: #666; margin-top: 10px; line-height: 1.5; }
+
+    /* Lista de marcadores detectados */
+    #mapa {
+      position: absolute; top: 70px; right: 16px;
+      background: rgba(0,0,0,0.85); border-radius: 10px;
+      padding: 12px 16px; min-width: 160px;
+    }
+    #mapa .mapa-titulo { font-size: 9px; letter-spacing: 2px; color: #555; margin-bottom: 10px; }
+    .mapa-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: #aaa; margin-bottom: 6px;
+    }
+    .mapa-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .mapa-item.detectado { color: #fff; }
   </style>
 </head>
 <body>
 
-  <!-- Permission / Start Screen -->
   <div id="permission-screen">
-    <div class="big-icon">📷</div>
-    <h1>AR VIEWER</h1>
-    <p>Apunta tu cámara al <strong style="color:#00ff88">marcador #4</strong> para ver el modelo 3D en realidad aumentada.</p>
+    <div style="font-size:52px">🔍</div>
+    <h1>AR DIAGNÓSTICO</h1>
+    <p>Apunta la cámara a cada marcador del PDF para descubrir qué <strong style="color:#00ff88">value</strong> le asigna AR.js a cada uno.</p>
     <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
-    <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
 
-  <!-- AR Scene (hidden until started) -->
   <div id="ar-container" style="display:none; width:100%; height:100vh;">
     <a-scene
       embedded
-      arjs="sourceType: webcam;
-            debugUIEnabled: false;
-            detectionMode: mono_and_matrix;
-            matrixCodeType: 3x3_HAMMING63;
-            trackingMethod: best;
-            maxDetectionRate: 60;
-            canvasWidth: 640;
-            canvasHeight: 480;
-            facingMode: environment;"
-      renderer="logarithmicDepthBuffer: true;
-                antialias: true;
-                colorManagement: true;
-                sortObjects: true;
-                physicallyCorrectLights: true;
-                maxCanvasWidth: 640;
-                maxCanvasHeight: 480;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3_HAMMING63; facingMode: environment;"
+      renderer="logarithmicDepthBuffer: true; antialias: true;"
       vr-mode-ui="enabled: false"
       style="width:100%;height:100%;"
     >
-      <!-- Assets -->
-      <a-assets>
-        <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
-      </a-assets>
+      <!-- Los 6 valores más probables según el PDF generado -->
+      <!-- Cada uno con un color distinto para identificarlo visualmente -->
 
-      <!-- Marcador de matriz #4 (HAMMING 3x3) -->
-      <a-marker
-        type="barcode"
-        value="4"
-        id="marker-4"
-        smooth="true"
-        smoothCount="15"
-        smoothTolerance="0.01"
-        smoothThreshold="3"
-      >
-
-        <!-- Base: caja translúcida -->
-        <a-box
-          position="0 0.5 0"
-          rotation="0 45 0"
-          width="1" height="1" depth="1"
-          color="#00ff88"
-          opacity="0.85"
-          material="wireframe: false; metalness: 0.8; roughness: 0.2;"
-          animation="property: rotation; to: 0 405 0; loop: true; dur: 4000; easing: linear"
-        ></a-box>
-
-        <!-- Esfera interna -->
-        <a-sphere
-          position="0 0.5 0"
-          radius="0.35"
-          color="#ffffff"
-          opacity="0.9"
-          material="metalness: 1; roughness: 0;"
-          animation="property: position; to: 0 0.9 0; loop: true; dir: alternate; dur: 1500; easing: easeInOutSine"
-        ></a-sphere>
-
-        <!-- Anillo orbitando -->
-        <a-torus
-          position="0 0.5 0"
-          radius="0.7"
-          radius-tubular="0.04"
-          color="#ff6600"
-          rotation="90 0 0"
-          material="metalness: 0.9; roughness: 0.1;"
-          animation="property: rotation; to: 90 0 360; loop: true; dur: 3000; easing: linear"
-        ></a-torus>
-
-        <!-- Partícula decorativa arriba -->
-        <a-sphere
-          position="0 1.6 0"
-          radius="0.1"
-          color="#ffcc00"
-          material="emissive: #ffcc00; emissiveIntensity: 0.8;"
-          animation="property: position; from: 0 1.6 0; to: 0 1.9 0; loop: true; dir: alternate; dur: 1000; easing: easeInOutSine"
-        ></a-sphere>
-
-        <!-- Luz de punto sobre el modelo -->
-        <a-light type="point" color="#00ff88" intensity="1.5" position="0 2 0"></a-light>
-
+      <a-marker type="barcode" value="0" id="m0">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#ff4444" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 0" position="0 1.3 0" align="center" color="#ff4444" scale="1.5 1.5 1.5"></a-text>
       </a-marker>
 
-      <!-- Cámara AR -->
+      <a-marker type="barcode" value="1" id="m1">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#ff8800" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 1" position="0 1.3 0" align="center" color="#ff8800" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="2" id="m2">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#ffff00" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 2" position="0 1.3 0" align="center" color="#ffff00" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="3" id="m3">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#00ff88" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 3" position="0 1.3 0" align="center" color="#00ff88" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="4" id="m4">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#00aaff" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 4" position="0 1.3 0" align="center" color="#00aaff" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="5" id="m5">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#cc44ff" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 5" position="0 1.3 0" align="center" color="#cc44ff" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <!-- Rango extendido por si alguno cae fuera del 0-5 -->
+      <a-marker type="barcode" value="6" id="m6">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#ff44aa" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 6" position="0 1.3 0" align="center" color="#ff44aa" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
+      <a-marker type="barcode" value="7" id="m7">
+        <a-box position="0 0.5 0" width="1" height="1" depth="1" color="#ffffff" material="metalness:0.5"></a-box>
+        <a-text value="VALUE 7" position="0 1.3 0" align="center" color="#ffffff" scale="1.5 1.5 1.5"></a-text>
+      </a-marker>
+
       <a-entity camera></a-entity>
     </a-scene>
   </div>
 
-  <!-- UI Overlay (visible durante AR) -->
   <div id="ui-overlay" style="display:none;">
     <div id="topbar">
-      <span id="logo">◈ AR Viewer</span>
-      <div style="display:flex; align-items:center;">
-        <span id="status-dot"></span>
-        <span id="status-text">BUSCANDO MARCADOR</span>
-      </div>
+      <span id="logo">◈ AR DIAGNÓSTICO</span>
+      <span style="font-size:11px; color:#555; letter-spacing:1px;">3x3_HAMMING63</span>
     </div>
 
-    <!-- Corners -->
-    <div class="corner corner-tl"></div>
-    <div class="corner corner-tr"></div>
-    <div class="corner corner-bl"></div>
-    <div class="corner corner-br"></div>
-    <div id="scan-line"></div>
+    <!-- Mapa de colores -->
+    <div id="mapa">
+      <div class="mapa-titulo">COLORES POR VALUE</div>
+      <div class="mapa-item" id="item-0"><div class="mapa-dot" style="background:#ff4444"></div> value="0"</div>
+      <div class="mapa-item" id="item-1"><div class="mapa-dot" style="background:#ff8800"></div> value="1"</div>
+      <div class="mapa-item" id="item-2"><div class="mapa-dot" style="background:#ffff00"></div> value="2"</div>
+      <div class="mapa-item" id="item-3"><div class="mapa-dot" style="background:#00ff88"></div> value="3"</div>
+      <div class="mapa-item" id="item-4"><div class="mapa-dot" style="background:#00aaff"></div> value="4"</div>
+      <div class="mapa-item" id="item-5"><div class="mapa-dot" style="background:#cc44ff"></div> value="5"</div>
+      <div class="mapa-item" id="item-6"><div class="mapa-dot" style="background:#ff44aa"></div> value="6"</div>
+      <div class="mapa-item" id="item-7"><div class="mapa-dot" style="background:#ffffff"></div> value="7"</div>
+    </div>
 
-    <!-- Instruction card -->
-    <div id="instruction-card">
-      <span class="icon">🎯</span>
-      <p>Apunta la cámara al <strong>marcador #4</strong><br>mantenlo bien iluminado y a 15-30cm de distancia</p>
+    <!-- Panel resultado -->
+    <div id="resultado">
+      <div class="titulo">ÚLTIMO MARCADOR DETECTADO</div>
+      <div class="valor" id="val-texto">—</div>
+      <div id="color-badge" class="color-badge" style="background:#333; color:#888">ESPERANDO</div>
+      <div class="subtitulo" id="subtitulo">Apunta la cámara a un marcador del PDF</div>
     </div>
   </div>
 
   <script>
-    async function startAR() {
-      // Detectar cámara principal antes de iniciar AR.js
-      await detectMainCamera();
+    const COLORES = {
+      0: { color: '#ff4444', nombre: 'ROJO' },
+      1: { color: '#ff8800', nombre: 'NARANJA' },
+      2: { color: '#ffff00', nombre: 'AMARILLO' },
+      3: { color: '#00ff88', nombre: 'VERDE' },
+      4: { color: '#00aaff', nombre: 'AZUL' },
+      5: { color: '#cc44ff', nombre: 'MORADO' },
+      6: { color: '#ff44aa', nombre: 'ROSA' },
+      7: { color: '#ffffff', nombre: 'BLANCO' },
+    };
 
+    // Mapa de resultados: marcador físico (posición en hoja) → value AR.js
+    const mapaDescubierto = {};
+
+    async function startAR() {
+      await detectMainCamera();
       document.getElementById('permission-screen').style.display = 'none';
       document.getElementById('ar-container').style.display = 'block';
       document.getElementById('ui-overlay').style.display = 'block';
 
-      // Si encontramos un deviceId específico, lo inyectamos en AR.js
       if (window._arCameraDeviceId) {
         const scene = document.querySelector('a-scene');
-        const currentArjs = scene.getAttribute('arjs');
-        scene.setAttribute('arjs', currentArjs + ` deviceId: ${window._arCameraDeviceId};`);
+        scene.setAttribute('arjs', scene.getAttribute('arjs') + ` deviceId: ${window._arCameraDeviceId};`);
       }
 
-      // Detectar cuando el marcador es encontrado/perdido
       setTimeout(() => {
-        const marker = document.getElementById('marker-4');
-        if (!marker) {
-          console.error('❌ Marcador #4 no encontrado en el DOM');
-          return;
+        for (let v = 0; v <= 7; v++) {
+          const marker = document.getElementById(`m${v}`);
+          if (!marker) continue;
+
+          marker.addEventListener('markerFound', () => {
+            const info = COLORES[v];
+            document.getElementById('val-texto').textContent = `VALUE = "${v}"`;
+            document.getElementById('color-badge').style.background = info.color;
+            document.getElementById('color-badge').style.color = v === 2 ? '#000' : '#000';
+            document.getElementById('color-badge').textContent = info.nombre;
+            document.getElementById('resultado').classList.add('activo');
+            document.getElementById('subtitulo').textContent = `Anota: este marcador físico = value="${v}"`;
+
+            // Resaltar en el mapa
+            document.getElementById(`item-${v}`).classList.add('detectado');
+          });
+
+          marker.addEventListener('markerLost', () => {
+            document.getElementById('resultado').classList.remove('activo');
+          });
         }
-
-        console.log('✅ Marcador #4 registrado, esperando detección...');
-
-        marker.addEventListener('markerFound', () => {
-          console.log('🎯 MARCADOR #4 DETECTADO');
-          document.getElementById('status-dot').classList.add('found');
-          document.getElementById('status-text').textContent = 'MARCADOR #4 DETECTADO';
-          document.getElementById('instruction-card').classList.add('hidden');
-        });
-
-        marker.addEventListener('markerLost', () => {
-          console.log('⚠️ Marcador #4 perdido');
-          document.getElementById('status-dot').classList.remove('found');
-          document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #4';
-          document.getElementById('instruction-card').classList.remove('hidden');
-        });
       }, 2000);
     }
   </script>

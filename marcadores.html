@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marcadores AR - 3x3 HAMMING63 (0-6)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      color: #fff;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: #00ff88;
+      letter-spacing: 3px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #888;
+      letter-spacing: 2px;
+    }
+
+    .info-box {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 40px;
+      line-height: 1.8;
+    }
+
+    .info-box h3 {
+      color: #00ff88;
+      margin-bottom: 15px;
+      font-size: 16px;
+    }
+
+    .info-box ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .info-box li {
+      padding: 5px 0;
+      color: #ccc;
+      font-size: 13px;
+    }
+
+    .info-box li strong {
+      color: #00ff88;
+    }
+
+    .markers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .marker-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(0, 255, 136, 0.2);
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .marker-card:hover {
+      border-color: #00ff88;
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+    }
+
+    .marker-card::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+      border-radius: 16px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: -1;
+    }
+
+    .marker-card:hover::before {
+      opacity: 1;
+    }
+
+    .marker-number {
+      font-size: 48px;
+      font-weight: 700;
+      color: #00ff88;
+      margin-bottom: 15px;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+
+    .marker-label {
+      font-size: 11px;
+      color: #888;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    .marker-image-wrapper {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .marker-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+
+    .download-btn {
+      background: transparent;
+      border: 1px solid #00ff88;
+      color: #00ff88;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .download-btn:hover {
+      background: #00ff88;
+      color: #0a0a0a;
+      transform: scale(1.05);
+    }
+
+    .print-section {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid rgba(0, 255, 136, 0.2);
+    }
+
+    .print-btn {
+      background: #00ff88;
+      color: #0a0a0a;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .print-btn:hover {
+      background: #00dd77;
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+    }
+
+    @media print {
+      body {
+        background: white;
+        color: black;
+      }
+
+      .info-box, .print-section, .download-btn {
+        display: none;
+      }
+
+      .marker-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 2px solid #000;
+        background: white;
+      }
+
+      .marker-number {
+        color: #000;
+        text-shadow: none;
+      }
+
+      .marker-label {
+        color: #666;
+      }
+
+      .markers-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>◈ Marcadores AR</h1>
+      <p class="subtitle">3x3 HAMMING63 — Valores 0 a 6</p>
+    </header>
+
+    <div class="info-box">
+      <h3>📋 Instrucciones de Uso</h3>
+      <ul>
+        <li><strong>1.</strong> Imprime esta página en papel (tamaño A4 o Carta)</li>
+        <li><strong>2.</strong> Recorta los marcadores dejando el borde blanco intacto</li>
+        <li><strong>3.</strong> Pega sobre cartón para mayor rigidez (opcional pero recomendado)</li>
+        <li><strong>4.</strong> Abre <code>index.html</code> en Chrome móvil (HTTPS requerido)</li>
+        <li><strong>5.</strong> Apunta la cámara al marcador a 15-30cm de distancia</li>
+        <li><strong>6.</strong> El código está configurado para el <strong>marcador #4</strong></li>
+      </ul>
+    </div>
+
+    <div class="markers-grid">
+      <div class="marker-card">
+        <div class="marker-number">#0</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/0.png" alt="Marcador 0" class="marker-image">
+        </div>
+        <a href="marcadores/0.png" download="marker-0.png" class="download-btn">Descargar</a>
+      </div>
+
+      <div class="marker-card">
+        <div class="marker-number">#1</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/1.png" alt="Marcador 1" class="marker-image">
+        </div>
+        <a href="marcadores/1.png" download="marker-1.png" class="download-btn">Descargar</a>
+      </div>
+
+      <div class="marker-card">
+        <div class="marker-number">#2</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/2.png" alt="Marcador 2" class="marker-image">
+        </div>
+        <a href="marcadores/2.png" download="marker-2.png" class="download-btn">Descargar</a>
+      </div>
+
+      <div class="marker-card">
+        <div class="marker-number">#3</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/3.png" alt="Marcador 3" class="marker-image">
+        </div>
+        <a href="marcadores/3.png" download="marker-3.png" class="download-btn">Descargar</a>
+      </div>
+
+      <div class="marker-card" style="border-color: #00ff88; box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);">
+        <div class="marker-number" style="font-size: 56px;">#4</div>
+        <div class="marker-label" style="color: #00ff88; font-weight: 700;">✓ Marcador Activo</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/4.png" alt="Marcador 4" class="marker-image">
+        </div>
+        <a href="marcadores/4.png" download="marker-4.png" class="download-btn" style="border-width: 2px; font-weight: 700;">Descargar</a>
+      </div>
+
+      <div class="marker-card">
+        <div class="marker-number">#5</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/5.png" alt="Marcador 5" class="marker-image">
+        </div>
+        <a href="marcadores/5.png" download="marker-5.png" class="download-btn">Descargar</a>
+      </div>
+
+      <div class="marker-card">
+        <div class="marker-number">#6</div>
+        <div class="marker-label">Marcador</div>
+        <div class="marker-image-wrapper">
+          <img src="marcadores/6.png" alt="Marcador 6" class="marker-image">
+        </div>
+        <a href="marcadores/6.png" download="marker-6.png" class="download-btn">Descargar</a>
+      </div>
+    </div>
+
+    <div class="print-section">
+      <button class="print-btn" onclick="window.print()">🖨️ Imprimir Todos los Marcadores</button>
+      <p style="margin-top: 20px; color: #888; font-size: 12px;">
+        Marcadores generados desde el repositorio oficial de ARToolkit<br>
+        Tipo: 3x3_HAMMING63 (Hamming Distance 3)
+      </p>
+    </div>
+  </div>
+</body>
+</html>
