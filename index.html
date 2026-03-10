@@ -238,7 +238,7 @@
   <div id="permission-screen">
     <div class="big-icon">📷</div>
     <h1>AR VIEWER</h1>
-    <p>Apunta tu cámara a tu <strong style="color:#00ff88">imagen entrenada</strong> para ver el modelo 3D en realidad aumentada.</p>
+    <p>Apunta tu cámara al <strong style="color:#00ff88">marcador #1</strong> para ver el modelo 3D en realidad aumentada.</p>
     <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
@@ -247,7 +247,7 @@
   <div id="ar-container" style="display:none; width:100%; height:100vh;">
     <a-scene
       embedded
-      arjs="sourceType: webcam; debugUIEnabled: false; facingMode: environment;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3_HAMMING63; facingMode: environment;"
       renderer="logarithmicDepthBuffer: true; antialias: true;"
       vr-mode-ui="enabled: false"
       style="width:100%;height:100%;"
@@ -257,16 +257,8 @@
         <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
       </a-assets>
 
-      <!-- NFT Marker -->
-      <a-nft
-        type="nft"
-        url="markers/imagen"
-        smooth="true"
-        smoothCount="10"
-        smoothTolerance="0.01"
-        smoothThreshold="5"
-        id="nft-marker"
-      >
+      <!-- Marcador de matriz #1 -->
+      <a-marker type="barcode" value="1" id="nft-marker">
 
         <!-- Base: caja translúcida -->
         <a-box
@@ -312,7 +304,7 @@
         <!-- Luz de punto sobre el modelo -->
         <a-light type="point" color="#00ff88" intensity="1.5" position="0 2 0"></a-light>
 
-      </a-nft>
+      </a-marker>
 
       <!-- Cámara AR -->
       <a-entity camera></a-entity>
