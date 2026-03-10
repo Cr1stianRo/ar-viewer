@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR Viewer — Marcador Físico</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #0a0a0a;
+      overflow: hidden;
+    }
+
+    /* Overlay UI */
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Top bar */
+    #topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+
+    #logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #00ff88;
+      text-transform: uppercase;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 8px #ff4444;
+      animation: pulse 1.5s ease-in-out infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    #status-dot.found {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: none;
+    }
+
+    #status-text {
+      font-size: 11px;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+
+    /* Instruction card */
+    #instruction-card {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 18px 28px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.5s ease;
+      min-width: 260px;
+    }
+
+    #instruction-card.hidden {
+      opacity: 0;
+    }
+
+    #instruction-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    #instruction-card p {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+    }
+
+    #instruction-card strong {
+      color: #00ff88;
+    }
+
+    /* Corner scan lines aesthetic */
+    .corner {
+      position: absolute;
+      width: 30px; height: 30px;
+    }
+    .corner-tl { top: 70px; left: 20px; border-top: 2px solid #00ff88; border-left: 2px solid #00ff88; }
+    .corner-tr { top: 70px; right: 20px; border-top: 2px solid #00ff88; border-right: 2px solid #00ff88; }
+    .corner-bl { bottom: 130px; left: 20px; border-bottom: 2px solid #00ff88; border-left: 2px solid #00ff88; }
+    .corner-br { bottom: 130px; right: 20px; border-bottom: 2px solid #00ff88; border-right: 2px solid #00ff88; }
+
+    /* Scan line animation */
+    #scan-line {
+      position: absolute;
+      top: 70px;
+      left: 20px;
+      right: 20px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #00ff88, transparent);
+      opacity: 0.6;
+      animation: scan 3s linear infinite;
+    }
+
+    @keyframes scan {
+      0%   { top: 70px; opacity: 0.6; }
+      48%  { opacity: 0.6; }
+      50%  { top: calc(100% - 130px); opacity: 0; }
+      51%  { top: 70px; opacity: 0; }
+      52%  { opacity: 0.6; }
+      100% { top: calc(100% - 130px); opacity: 0.6; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Camera permission overlay */
+    #permission-screen {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 20px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    #permission-screen .big-icon { font-size: 64px; }
+
+    #permission-screen h1 {
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    #permission-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.7;
+      max-width: 280px;
+    }
+
+    #start-btn {
+      pointer-events: all;
+      background: transparent;
+      border: 1px solid #00ff88;
+      color: #00ff88;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      padding: 14px 32px;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+
+    #start-btn:hover {
+      background: #00ff88;
+      color: #0a0a0a;
+    }
+
+    #hint {
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Permission / Start Screen -->
+  <div id="permission-screen">
+    <div class="big-icon">📷</div>
+    <h1>AR VIEWER</h1>
+    <p>Apunta tu cámara al marcador <strong style="color:#00ff88">HIRO</strong> para ver el modelo 3D en realidad aumentada.</p>
+    <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
+    <p id="hint">Necesita acceso a la cámara para funcionar</p>
+  </div>
+
+  <!-- AR Scene (hidden until started) -->
+  <div id="ar-container" style="display:none; width:100%; height:100vh;">
+    <a-scene
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true; antialias: true;"
+      vr-mode-ui="enabled: false"
+      style="width:100%;height:100%;"
+    >
+      <!-- Assets -->
+      <a-assets>
+        <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
+      </a-assets>
+
+      <!-- Marcador HIRO — el modelo aparece aquí -->
+      <a-marker preset="hiro" id="hiro-marker">
+
+        <!-- Base: caja translúcida -->
+        <a-box
+          position="0 0.5 0"
+          rotation="0 45 0"
+          width="1" height="1" depth="1"
+          color="#00ff88"
+          opacity="0.85"
+          material="wireframe: false; metalness: 0.8; roughness: 0.2;"
+          animation="property: rotation; to: 0 405 0; loop: true; dur: 4000; easing: linear"
+        ></a-box>
+
+        <!-- Esfera interna -->
+        <a-sphere
+          position="0 0.5 0"
+          radius="0.35"
+          color="#ffffff"
+          opacity="0.9"
+          material="metalness: 1; roughness: 0;"
+          animation="property: position; to: 0 0.9 0; loop: true; dir: alternate; dur: 1500; easing: easeInOutSine"
+        ></a-sphere>
+
+        <!-- Anillo orbitando -->
+        <a-torus
+          position="0 0.5 0"
+          radius="0.7"
+          radius-tubular="0.04"
+          color="#ff6600"
+          rotation="90 0 0"
+          material="metalness: 0.9; roughness: 0.1;"
+          animation="property: rotation; to: 90 0 360; loop: true; dur: 3000; easing: linear"
+        ></a-torus>
+
+        <!-- Partícula decorativa arriba -->
+        <a-sphere
+          position="0 1.6 0"
+          radius="0.1"
+          color="#ffcc00"
+          material="emissive: #ffcc00; emissiveIntensity: 0.8;"
+          animation="property: position; from: 0 1.6 0; to: 0 1.9 0; loop: true; dir: alternate; dur: 1000; easing: easeInOutSine"
+        ></a-sphere>
+
+        <!-- Luz de punto sobre el modelo -->
+        <a-light type="point" color="#00ff88" intensity="1.5" position="0 2 0"></a-light>
+
+      </a-marker>
+
+      <!-- Cámara AR -->
+      <a-entity camera></a-entity>
+    </a-scene>
+  </div>
+
+  <!-- UI Overlay (visible durante AR) -->
+  <div id="ui-overlay" style="display:none;">
+    <div id="topbar">
+      <span id="logo">◈ AR Viewer</span>
+      <div style="display:flex; align-items:center;">
+        <span id="status-dot"></span>
+        <span id="status-text">BUSCANDO MARCADOR</span>
+      </div>
+    </div>
+
+    <!-- Corners -->
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+    <div id="scan-line"></div>
+
+    <!-- Instruction card -->
+    <div id="instruction-card">
+      <span class="icon">🎯</span>
+      <p>Apunta la cámara al <strong>marcador HIRO</strong><br>e incl&iacute;nalo ligeramente hacia ti</p>
+    </div>
+  </div>
+
+  <script>
+    function startAR() {
+      document.getElementById('permission-screen').style.display = 'none';
+      document.getElementById('ar-container').style.display = 'block';
+      document.getElementById('ui-overlay').style.display = 'block';
+
+      // Detectar cuando el marcador es encontrado/perdido
+      setTimeout(() => {
+        const marker = document.getElementById('hiro-marker');
+        if (!marker) return;
+
+        marker.addEventListener('markerFound', () => {
+          document.getElementById('status-dot').classList.add('found');
+          document.getElementById('status-text').textContent = 'MARCADOR DETECTADO';
+          document.getElementById('instruction-card').classList.add('hidden');
+        });
+
+        marker.addEventListener('markerLost', () => {
+          document.getElementById('status-dot').classList.remove('found');
+          document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR';
+          document.getElementById('instruction-card').classList.remove('hidden');
+        });
+      }, 2000);
+    }
+  </script>
+
+</body>
+</html>
