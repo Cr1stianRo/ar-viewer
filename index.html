@@ -325,7 +325,7 @@
     >
       <!-- Assets -->
       <a-assets>
-        <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
+        <a-asset-item id="gallina-model" src="modelos/chicken/source/Gallina.glb"></a-asset-item>
       </a-assets>
 
       <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking optimizado -->
@@ -340,49 +340,18 @@
         smoothThreshold="4"
       >
 
-        <!-- Base: caja translúcida -->
-        <a-box
-          position="0 0.5 0"
-          rotation="0 45 0"
-          width="1" height="1" depth="1"
-          color="#00ff88"
-          opacity="0.85"
-          material="wireframe: false; metalness: 0.8; roughness: 0.2;"
-          animation="property: rotation; to: 0 405 0; loop: true; dur: 4000; easing: linear"
-        ></a-box>
+        <!-- Modelo 3D de Gallina -->
+        <a-entity
+          gltf-model="#gallina-model"
+          position="0 0 0"
+          scale="0.5 0.5 0.5"
+          rotation="0 0 0"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
+        ></a-entity>
 
-        <!-- Esfera interna -->
-        <a-sphere
-          position="0 0.5 0"
-          radius="0.35"
-          color="#ffffff"
-          opacity="0.9"
-          material="metalness: 1; roughness: 0;"
-          animation="property: position; to: 0 0.9 0; loop: true; dir: alternate; dur: 1500; easing: easeInOutSine"
-        ></a-sphere>
-
-        <!-- Anillo orbitando -->
-        <a-torus
-          position="0 0.5 0"
-          radius="0.7"
-          radius-tubular="0.04"
-          color="#ff6600"
-          rotation="90 0 0"
-          material="metalness: 0.9; roughness: 0.1;"
-          animation="property: rotation; to: 90 0 360; loop: true; dur: 3000; easing: linear"
-        ></a-torus>
-
-        <!-- Partícula decorativa arriba -->
-        <a-sphere
-          position="0 1.6 0"
-          radius="0.1"
-          color="#ffcc00"
-          material="emissive: #ffcc00; emissiveIntensity: 0.8;"
-          animation="property: position; from: 0 1.6 0; to: 0 1.9 0; loop: true; dir: alternate; dur: 1000; easing: easeInOutSine"
-        ></a-sphere>
-
-        <!-- Luz de punto sobre el modelo -->
-        <a-light type="point" color="#00ff88" intensity="1.5" position="0 2 0"></a-light>
+        <!-- Luz ambiental para iluminar el modelo -->
+        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.5" position="1 2 1"></a-light>
 
       </a-marker>
 
