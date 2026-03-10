@@ -5,6 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>AR Viewer — Marcador Físico</title>
 
+  <script>
+    // Forzar cámara trasera principal (no wide, no telefoto)
+    // Se ejecuta ANTES de que AR.js tome control de la cámara
+    window._arCameraDeviceId = null;
+
+    async function detectMainCamera() {
+      try {
+        // Primero pedimos acceso genérico para que el navegador liste dispositivos
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        tempStream.getTracks().forEach(t => t.stop());
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+
+        // En Android, la cámara principal suele ser la primera con facingMode environment
+        // Filtramos por labels comunes de wide/ultrawide para excluirlas
+        const wideKeywords = ['wide', 'ultra', 'gran', 'telephoto', 'tele', 'depth', 'macro', 'front'];
+        
+        const mainCam = cameras.find(cam => {
+          const label = cam.label.toLowerCase();
+          return !wideKeywords.some(kw => label.includes(kw));
+        });
+
+        if (mainCam) {
+          window._arCameraDeviceId = mainCam.deviceId;
+          console.log('Cámara seleccionada:', mainCam.label);
+        }
+      } catch(e) {
+        console.warn('No se pudo detectar cámara principal:', e);
+      }
+    }
+  </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
@@ -206,7 +238,7 @@
   <div id="permission-screen">
     <div class="big-icon">📷</div>
     <h1>AR VIEWER</h1>
-    <p>Apunta tu cámara al marcador <strong style="color:#00ff88">HIRO</strong> para ver el modelo 3D en realidad aumentada.</p>
+    <p>Apunta tu cámara a tu <strong style="color:#00ff88">imagen entrenada</strong> para ver el modelo 3D en realidad aumentada.</p>
     <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
@@ -215,7 +247,7 @@
   <div id="ar-container" style="display:none; width:100%; height:100vh;">
     <a-scene
       embedded
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      arjs="sourceType: webcam; debugUIEnabled: false; facingMode: environment;"
       renderer="logarithmicDepthBuffer: true; antialias: true;"
       vr-mode-ui="enabled: false"
       style="width:100%;height:100%;"
@@ -225,8 +257,16 @@
         <!-- Modelo de ejemplo: una caja + esfera + anillo flotante -->
       </a-assets>
 
-      <!-- Marcador HIRO — el modelo aparece aquí -->
-      <a-marker preset="hiro" id="hiro-marker">
+      <!-- NFT Marker -->
+      <a-nft
+        type="nft"
+        url="markers/imagen"
+        smooth="true"
+        smoothCount="10"
+        smoothTolerance="0.01"
+        smoothThreshold="5"
+        id="nft-marker"
+      >
 
         <!-- Base: caja translúcida -->
         <a-box
@@ -272,7 +312,7 @@
         <!-- Luz de punto sobre el modelo -->
         <a-light type="point" color="#00ff88" intensity="1.5" position="0 2 0"></a-light>
 
-      </a-marker>
+      </a-nft>
 
       <!-- Cámara AR -->
       <a-entity camera></a-entity>
@@ -299,19 +339,29 @@
     <!-- Instruction card -->
     <div id="instruction-card">
       <span class="icon">🎯</span>
-      <p>Apunta la cámara al <strong>marcador HIRO</strong><br>e incl&iacute;nalo ligeramente hacia ti</p>
+      <p>Apunta la cámara a tu <strong>imagen</strong><br>mantenla bien iluminada y visible</p>
     </div>
   </div>
 
   <script>
-    function startAR() {
+    async function startAR() {
+      // Detectar cámara principal antes de iniciar AR.js
+      await detectMainCamera();
+
       document.getElementById('permission-screen').style.display = 'none';
       document.getElementById('ar-container').style.display = 'block';
       document.getElementById('ui-overlay').style.display = 'block';
 
+      // Si encontramos un deviceId específico, lo inyectamos en AR.js
+      if (window._arCameraDeviceId) {
+        const scene = document.querySelector('a-scene');
+        const currentArjs = scene.getAttribute('arjs');
+        scene.setAttribute('arjs', currentArjs + ` deviceId: ${window._arCameraDeviceId};`);
+      }
+
       // Detectar cuando el marcador es encontrado/perdido
       setTimeout(() => {
-        const marker = document.getElementById('hiro-marker');
+        const marker = document.getElementById('nft-marker');
         if (!marker) return;
 
         marker.addEventListener('markerFound', () => {
