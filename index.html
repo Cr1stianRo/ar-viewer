@@ -340,26 +340,181 @@
         smoothThreshold="4"
       >
 
-        <!-- Cubo de prueba (para verificar que el marcador funciona) -->
-        <a-box
-          position="-0.5 0.5 0"
-          color="#ff0000"
+        <!-- ========== TARJETA DE PRESENTACIÓN: GALLINA & HUEVOS ========== -->
+
+        <!-- Base / Plataforma -->
+        <a-cylinder
+          position="0 0.05 0"
+          radius="1.2"
+          height="0.1"
+          color="#8B4513"
+          material="metalness: 0.3; roughness: 0.7;"
+        ></a-cylinder>
+
+        <!-- Pasto decorativo (base verde) -->
+        <a-cylinder
+          position="0 0.11 0"
+          radius="1.15"
+          height="0.02"
+          color="#4CAF50"
+        ></a-cylinder>
+
+        <!-- ========== GALLINA ESTILIZADA (centro) ========== -->
+        <a-entity id="gallina-group" position="0 0.4 0">
+
+          <!-- Cuerpo (esfera ovalada blanca) -->
+          <a-sphere
+            position="0 0.3 0"
+            radius="0.35"
+            scale="1 1.1 0.9"
+            color="#FFFFFF"
+            material="roughness: 0.8;"
+          ></a-sphere>
+
+          <!-- Cabeza (esfera más pequeña) -->
+          <a-sphere
+            position="0 0.65 0.15"
+            radius="0.18"
+            color="#FFFFFF"
+            material="roughness: 0.8;"
+          ></a-sphere>
+
+          <!-- Pico (cono naranja) -->
+          <a-cone
+            position="0 0.63 0.3"
+            radius-bottom="0.06"
+            radius-top="0.01"
+            height="0.12"
+            rotation="90 0 0"
+            color="#FF9800"
+          ></a-cone>
+
+          <!-- Cresta (forma ondulada - usando esferas) -->
+          <a-sphere position="-0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
+          <a-sphere position="0 0.78 0.12" radius="0.09" color="#FF5252" scale="0.9 1.3 0.6"></a-sphere>
+          <a-sphere position="0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
+
+          <!-- Ojos -->
+          <a-sphere position="-0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
+          <a-sphere position="0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
+
+          <!-- Alas (elipses a los lados) -->
+          <a-sphere
+            position="-0.28 0.35 0"
+            radius="0.2"
+            scale="0.5 0.8 1.2"
+            color="#F5F5F5"
+            material="roughness: 0.7;"
+            rotation="0 0 -20"
+          ></a-sphere>
+          <a-sphere
+            position="0.28 0.35 0"
+            radius="0.2"
+            scale="0.5 0.8 1.2"
+            color="#F5F5F5"
+            material="roughness: 0.7;"
+            rotation="0 0 20"
+          ></a-sphere>
+
+          <!-- Cola (abanico de plumas) -->
+          <a-box position="0 0.45 -0.32" width="0.15" height="0.25" depth="0.05" color="#E0E0E0" rotation="30 0 0"></a-box>
+          <a-box position="-0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 -15 0"></a-box>
+          <a-box position="0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 15 0"></a-box>
+
+          <!-- Patas (cilindros naranjas) -->
+          <a-cylinder position="-0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
+          <a-cylinder position="0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
+
+          <!-- Pies (conos achatados) -->
+          <a-cone position="-0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800" rotation="0 0 0"></a-cone>
+          <a-cone position="0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800" rotation="0 0 0"></a-cone>
+
+          <!-- Animación: Balanceo suave -->
+          <a-animation
+            attribute="rotation"
+            from="0 0 0"
+            to="0 360 0"
+            dur="8000"
+            repeat="indefinite"
+            easing="linear"
+          ></a-animation>
+
+        </a-entity>
+
+        <!-- ========== HUEVOS DECORATIVOS (alrededor) ========== -->
+
+        <!-- Huevo 1 (frontal izquierda) -->
+        <a-entity position="-0.6 0.15 0.5">
+          <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
+            <a-animation attribute="position" from="-0.6 0.15 0.5" to="-0.6 0.2 0.5" dur="1500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+          </a-sphere>
+        </a-entity>
+
+        <!-- Huevo 2 (frontal derecha) -->
+        <a-entity position="0.6 0.15 0.5">
+          <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
+            <a-animation attribute="position" from="0.6 0.15 0.5" to="0.6 0.18 0.5" dur="1800" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+          </a-sphere>
+        </a-entity>
+
+        <!-- Huevo 3 (izquierda) -->
+        <a-entity position="-0.8 0.15 0">
+          <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
+            <a-animation attribute="position" from="-0.8 0.15 0" to="-0.8 0.19 0" dur="2000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+          </a-sphere>
+        </a-entity>
+
+        <!-- Huevo 4 (derecha) -->
+        <a-entity position="0.8 0.15 0">
+          <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
+            <a-animation attribute="position" from="0.8 0.15 0" to="0.8 0.17 0" dur="1700" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+          </a-sphere>
+        </a-entity>
+
+        <!-- Huevo 5 (atrás izquierda) -->
+        <a-sphere position="-0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
+
+        <!-- Huevo 6 (atrás derecha) -->
+        <a-sphere position="0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
+
+        <!-- ========== ELEMENTOS DECORATIVOS ========== -->
+
+        <!-- Granos de maíz (pequeñas esferas amarillas) -->
+        <a-sphere position="-0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
+        <a-sphere position="-0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
+        <a-sphere position="-0.92 0.12 0.25" radius="0.04" color="#FFD700"></a-sphere>
+
+        <a-sphere position="0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
+        <a-sphere position="0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
+        <a-sphere position="0.92 0.12 0.25" radius="0.04" color="#FFD700"></a-sphere>
+
+        <!-- Plumitas flotantes (detalles) -->
+        <a-plane
+          position="-0.4 0.9 0.3"
+          width="0.08"
+          height="0.12"
+          color="#FFFFFF"
           opacity="0.8"
-          scale="0.2 0.2 0.2"
-        ></a-box>
+          rotation="20 30 10"
+        >
+          <a-animation attribute="position" from="-0.4 0.9 0.3" to="-0.4 1.1 0.3" dur="3000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-plane>
 
-        <!-- Modelo 3D de Gallina (carga directa) -->
-        <a-entity
-          id="gallina-entity"
-          gltf-model="modelos/chicken/source/Gallina.glb"
-          position="0 0 0"
-          scale="0.01 0.01 0.01"
-          rotation="0 0 0"
-        ></a-entity>
+        <a-plane
+          position="0.4 0.85 0.2"
+          width="0.09"
+          height="0.13"
+          color="#F5F5F5"
+          opacity="0.7"
+          rotation="-15 -20 -10"
+        >
+          <a-animation attribute="position" from="0.4 0.85 0.2" to="0.4 1.05 0.2" dur="3500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-plane>
 
-        <!-- Luz ambiental para iluminar el modelo -->
-        <a-light type="ambient" color="#ffffff" intensity="1"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.8" position="2 4 2"></a-light>
+        <!-- ========== ILUMINACIÓN ========== -->
+        <a-light type="ambient" color="#FFFFFF" intensity="0.6"></a-light>
+        <a-light type="directional" color="#FFFACD" intensity="0.8" position="2 3 1"></a-light>
+        <a-light type="point" color="#FFE4B5" intensity="0.5" position="0 1.5 0"></a-light>
 
       </a-marker>
 
