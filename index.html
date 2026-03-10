@@ -325,7 +325,7 @@
     >
       <!-- Assets -->
       <a-assets>
-        <a-asset-item id="gallina-model" src="modelos/chicken/source/Gallina.glb"></a-asset-item>
+        <!-- Modelo cargado directamente en la entidad -->
       </a-assets>
 
       <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking optimizado -->
@@ -342,18 +342,18 @@
 
         <!-- Cubo de prueba (para verificar que el marcador funciona) -->
         <a-box
-          position="0 0.5 0"
+          position="-0.5 0.5 0"
           color="#ff0000"
-          opacity="0.5"
-          scale="0.3 0.3 0.3"
+          opacity="0.8"
+          scale="0.2 0.2 0.2"
         ></a-box>
 
-        <!-- Modelo 3D de Gallina -->
+        <!-- Modelo 3D de Gallina (carga directa) -->
         <a-entity
           id="gallina-entity"
-          gltf-model="#gallina-model"
-          position="0 0.5 0"
-          scale="1 1 1"
+          gltf-model="url(modelos/chicken/source/Gallina.glb)"
+          position="0 0 0"
+          scale="0.01 0.01 0.01"
           rotation="0 0 0"
         ></a-entity>
 
@@ -428,15 +428,31 @@
         console.log('✅ Marcador #3 registrado con persistent tracking activado');
 
         // Debug: verificar carga del modelo 3D
-        const gallinaEntity = document.getElementById('gallina-entity');
-        if (gallinaEntity) {
-          gallinaEntity.addEventListener('model-loaded', () => {
-            console.log('✅ Modelo de gallina cargado correctamente');
-          });
-          gallinaEntity.addEventListener('model-error', (e) => {
-            console.error('❌ Error cargando modelo:', e);
-          });
-        }
+        setTimeout(() => {
+          const gallinaEntity = document.getElementById('gallina-entity');
+          console.log('🔍 Buscando entidad gallina:', gallinaEntity);
+
+          if (gallinaEntity) {
+            console.log('🔍 Atributo gltf-model:', gallinaEntity.getAttribute('gltf-model'));
+
+            gallinaEntity.addEventListener('model-loaded', () => {
+              console.log('✅ Modelo de gallina cargado correctamente');
+              console.log('📦 Objeto 3D:', gallinaEntity.object3D);
+            });
+
+            gallinaEntity.addEventListener('model-error', (e) => {
+              console.error('❌ Error cargando modelo:', e.detail);
+            });
+
+            // Verificar después de 3 segundos si cargó
+            setTimeout(() => {
+              const hasModel = gallinaEntity.getObject3D('mesh');
+              console.log('🔍 ¿Tiene mesh después de 3seg?:', !!hasModel);
+            }, 3000);
+          } else {
+            console.error('❌ No se encontró la entidad gallina-entity');
+          }
+        }, 3000);
 
         marker.addEventListener('markerFound', () => {
           // Limpiar timeout si estaba esperando ocultar
