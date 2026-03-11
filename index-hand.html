@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR Viewer — Hand Tracking</title>
+
+  <!-- A-Frame -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+
+  <!-- MediaPipe Hands -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #0a0a0a;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Video de la cámara (fondo) */
+    #video-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 1;
+    }
+
+    #input-video {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      /* Sin espejo - cámara trasera */
+    }
+
+    /* Canvas de detección (overlay invisible) */
+    #output-canvas {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      display: none; /* Ocultar skeleton, solo usar datos */
+    }
+
+    /* A-Frame scene (overlay 3D) */
+    #ar-scene {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* UI Overlay */
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Top bar */
+    #topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+
+    #logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #00ff88;
+      text-transform: uppercase;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 8px #ff4444;
+      animation: pulse 1.5s ease-in-out infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    #status-dot.found {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: none;
+    }
+
+    #status-text {
+      font-size: 11px;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+
+    /* Instruction card */
+    #instruction-card {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 18px 28px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.5s ease;
+      min-width: 260px;
+    }
+
+    #instruction-card.hidden {
+      opacity: 0;
+    }
+
+    #instruction-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    #instruction-card p {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+    }
+
+    #instruction-card strong {
+      color: #00ff88;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Permission screen */
+    #permission-screen {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 20px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    #permission-screen .big-icon { font-size: 64px; }
+
+    #permission-screen h1 {
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    #permission-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.7;
+      max-width: 320px;
+    }
+
+    #start-btn {
+      pointer-events: all;
+      background: transparent;
+      border: 1px solid #00ff88;
+      color: #00ff88;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      padding: 14px 32px;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+
+    #start-btn:hover {
+      background: #00ff88;
+      color: #0a0a0a;
+    }
+
+    #hint {
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Permission Screen -->
+  <div id="permission-screen">
+    <div class="big-icon">✋</div>
+    <h1>HAND TRACKING AR</h1>
+    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara para ver el modelo 3D flotando sobre tu palma.</p>
+    <button id="start-btn" onclick="startHandTracking()">INICIAR CÁMARA</button>
+    <p id="hint">Necesita acceso a la cámara para funcionar</p>
+  </div>
+
+  <!-- Video feed (background) -->
+  <div id="video-container" style="display:none;">
+    <video id="input-video" playsinline></video>
+    <canvas id="output-canvas"></canvas>
+  </div>
+
+  <!-- A-Frame 3D Scene (overlay) -->
+  <a-scene
+    id="ar-scene"
+    embedded
+    renderer="antialias: true;
+              alpha: true;
+              colorManagement: true;
+              sortObjects: true;"
+    vr-mode-ui="enabled: false"
+    style="display:none; background: transparent;"
+  >
+    <!-- Modelo 3D de la gallina (inicialmente oculto) -->
+    <a-entity id="hand-model" visible="false" scale="0.5 0.5 0.5">
+
+      <!-- Base / Plataforma -->
+      <a-cylinder
+        position="0 0.05 0"
+        radius="1.2"
+        height="0.1"
+        color="#8B4513"
+        material="metalness: 0.3; roughness: 0.7;"
+      ></a-cylinder>
+
+      <!-- Pasto decorativo -->
+      <a-cylinder
+        position="0 0.11 0"
+        radius="1.15"
+        height="0.02"
+        color="#4CAF50"
+      ></a-cylinder>
+
+      <!-- ========== GALLINA ESTILIZADA ========== -->
+      <a-entity id="gallina-group" position="0 0.4 0">
+
+        <!-- Cuerpo -->
+        <a-sphere
+          position="0 0.3 0"
+          radius="0.35"
+          scale="1 1.1 0.9"
+          color="#FFFFFF"
+          material="roughness: 0.8;"
+        ></a-sphere>
+
+        <!-- Cabeza -->
+        <a-sphere
+          position="0 0.65 0.15"
+          radius="0.18"
+          color="#FFFFFF"
+          material="roughness: 0.8;"
+        ></a-sphere>
+
+        <!-- Pico -->
+        <a-cone
+          position="0 0.63 0.3"
+          radius-bottom="0.06"
+          radius-top="0.01"
+          height="0.12"
+          rotation="90 0 0"
+          color="#FF9800"
+        ></a-cone>
+
+        <!-- Cresta -->
+        <a-sphere position="-0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
+        <a-sphere position="0 0.78 0.12" radius="0.09" color="#FF5252" scale="0.9 1.3 0.6"></a-sphere>
+        <a-sphere position="0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
+
+        <!-- Ojos -->
+        <a-sphere position="-0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
+        <a-sphere position="0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
+
+        <!-- Alas -->
+        <a-sphere
+          position="-0.28 0.35 0"
+          radius="0.2"
+          scale="0.5 0.8 1.2"
+          color="#F5F5F5"
+          material="roughness: 0.7;"
+          rotation="0 0 -20"
+        ></a-sphere>
+        <a-sphere
+          position="0.28 0.35 0"
+          radius="0.2"
+          scale="0.5 0.8 1.2"
+          color="#F5F5F5"
+          material="roughness: 0.7;"
+          rotation="0 0 20"
+        ></a-sphere>
+
+        <!-- Cola -->
+        <a-box position="0 0.45 -0.32" width="0.15" height="0.25" depth="0.05" color="#E0E0E0" rotation="30 0 0"></a-box>
+        <a-box position="-0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 -15 0"></a-box>
+        <a-box position="0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 15 0"></a-box>
+
+        <!-- Patas -->
+        <a-cylinder position="-0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
+        <a-cylinder position="0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
+
+        <!-- Pies -->
+        <a-cone position="-0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800"></a-cone>
+        <a-cone position="0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800"></a-cone>
+
+        <!-- Animación rotación -->
+        <a-animation
+          attribute="rotation"
+          from="0 0 0"
+          to="0 360 0"
+          dur="8000"
+          repeat="indefinite"
+          easing="linear"
+        ></a-animation>
+
+      </a-entity>
+
+      <!-- ========== HUEVOS ========== -->
+
+      <a-entity position="-0.6 0.15 0.5">
+        <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
+          <a-animation attribute="position" from="-0.6 0.15 0.5" to="-0.6 0.2 0.5" dur="1500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+      </a-entity>
+
+      <a-entity position="0.6 0.15 0.5">
+        <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
+          <a-animation attribute="position" from="0.6 0.15 0.5" to="0.6 0.18 0.5" dur="1800" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+      </a-entity>
+
+      <a-entity position="-0.8 0.15 0">
+        <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
+          <a-animation attribute="position" from="-0.8 0.15 0" to="-0.8 0.19 0" dur="2000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+      </a-entity>
+
+      <a-entity position="0.8 0.15 0">
+        <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
+          <a-animation attribute="position" from="0.8 0.15 0" to="0.8 0.17 0" dur="1700" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+      </a-entity>
+
+      <a-sphere position="-0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
+      <a-sphere position="0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
+
+      <!-- Granos de maíz -->
+      <a-sphere position="-0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
+      <a-sphere position="-0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
+      <a-sphere position="0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
+      <a-sphere position="0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
+
+      <!-- Plumitas flotantes -->
+      <a-plane
+        position="-0.4 0.9 0.3"
+        width="0.08"
+        height="0.12"
+        color="#FFFFFF"
+        opacity="0.8"
+        rotation="20 30 10"
+      >
+        <a-animation attribute="position" from="-0.4 0.9 0.3" to="-0.4 1.1 0.3" dur="3000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+      </a-plane>
+
+      <!-- Iluminación -->
+      <a-light type="ambient" color="#FFFFFF" intensity="0.8"></a-light>
+      <a-light type="directional" color="#FFFACD" intensity="1.0" position="2 3 1"></a-light>
+      <a-light type="point" color="#FFE4B5" intensity="0.6" position="0 1.5 0"></a-light>
+
+    </a-entity>
+
+    <!-- Cámara A-Frame -->
+    <a-camera position="0 0 0" look-controls-enabled="false" wasd-controls-enabled="false"></a-camera>
+  </a-scene>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay" style="display:none;">
+    <div id="topbar">
+      <span id="logo">✋ Hand Tracking AR</span>
+      <div style="display:flex; align-items:center;">
+        <span id="status-dot"></span>
+        <span id="status-text">BUSCANDO MANO</span>
+      </div>
+    </div>
+
+    <div id="instruction-card">
+      <span class="icon">✋</span>
+      <p>Muestra tu <strong>mano abierta</strong><br>frente a la cámara (15-50cm)</p>
+    </div>
+  </div>
+
+  <script>
+    // Variables globales
+    let hands;
+    let camera;
+    let handDetected = false;
+    let lastHandPosition = { x: 0, y: 0, z: 0 };
+    let lastHandRotation = { x: 0, y: 0, z: 0 };
+    let smoothingFactor = 0.3; // 0.1 = muy suave, 0.5 = más reactivo
+
+    async function startHandTracking() {
+      document.getElementById('permission-screen').style.display = 'none';
+      document.getElementById('video-container').style.display = 'block';
+      document.getElementById('ar-scene').style.display = 'block';
+      document.getElementById('ui-overlay').style.display = 'block';
+
+      const videoElement = document.getElementById('input-video');
+      const canvasElement = document.getElementById('output-canvas');
+      const canvasCtx = canvasElement.getContext('2d');
+
+      // Configurar MediaPipe Hands
+      hands = new Hands({
+        locateFile: (file) => {
+          return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }
+      });
+
+      hands.setOptions({
+        maxNumHands: 1, // Solo detectar 1 mano
+        modelComplexity: 1, // 0=lite, 1=full (mejor precisión)
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.6
+      });
+
+      hands.onResults(onHandsResults);
+
+      // Iniciar cámara
+      camera = new Camera(videoElement, {
+        onFrame: async () => {
+          await hands.send({ image: videoElement });
+        },
+        width: 1280,
+        height: 720,
+        facingMode: 'environment' // Cámara trasera
+      });
+
+      camera.start();
+
+      // Ajustar canvas al tamaño del video
+      videoElement.addEventListener('loadedmetadata', () => {
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
+      });
+    }
+
+    function onHandsResults(results) {
+      const handModel = document.getElementById('hand-model');
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        // Mano detectada
+        const landmarks = results.multiHandLandmarks[0];
+
+        // Usar el centro de la palma (landmark #9 = punto central de la mano)
+        const palmCenter = landmarks[9];
+
+        // Convertir coordenadas normalizadas (0-1) a posición 3D
+        // X: -1 a 1 (izquierda a derecha)
+        // Y: 1 a -1 (arriba a abajo, invertido porque coordenadas canvas)
+        // Z: profundidad estimada
+        const targetX = (palmCenter.x - 0.5) * 4; // Escalar a rango -2 a 2
+        const targetY = -(palmCenter.y - 0.5) * 3; // Invertir Y, escalar
+        const targetZ = -palmCenter.z * 2 - 3; // Más cerca = más negativo
+
+        // Suavizado (lerp) para evitar temblores
+        lastHandPosition.x += (targetX - lastHandPosition.x) * smoothingFactor;
+        lastHandPosition.y += (targetY - lastHandPosition.y) * smoothingFactor;
+        lastHandPosition.z += (targetZ - lastHandPosition.z) * smoothingFactor;
+
+        // Actualizar posición del modelo
+        handModel.setAttribute('position', {
+          x: lastHandPosition.x,
+          y: lastHandPosition.y,
+          z: lastHandPosition.z
+        });
+
+        // Mostrar modelo si estaba oculto
+        if (!handDetected) {
+          handModel.setAttribute('visible', true);
+          handDetected = true;
+          updateStatus(true);
+        }
+
+      } else {
+        // No hay mano detectada
+        if (handDetected) {
+          // Ocultar modelo después de 1 segundo sin detección
+          setTimeout(() => {
+            if (!handDetected) {
+              handModel.setAttribute('visible', false);
+            }
+          }, 1000);
+
+          handDetected = false;
+          updateStatus(false);
+        }
+      }
+    }
+
+    function updateStatus(found) {
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const instructionCard = document.getElementById('instruction-card');
+
+      if (found) {
+        statusDot.classList.add('found');
+        statusText.textContent = 'TRACKING ACTIVO';
+        instructionCard.classList.add('hidden');
+      } else {
+        statusDot.classList.remove('found');
+        statusText.textContent = 'BUSCANDO MANO';
+        instructionCard.classList.remove('hidden');
+      }
+    }
+  </script>
+
+</body>
+</html>
