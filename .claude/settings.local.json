@@ -11,7 +11,9 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "WebFetch(domain:ar-js-org.github.io)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "Bash(git mv:*)",
+      "Bash(git add:*)"
     ]
   }
 }

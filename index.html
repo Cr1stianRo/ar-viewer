@@ -3,642 +3,344 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AR Viewer — Marcador Físico</title>
-
-  <script>
-    // Forzar cámara trasera principal (no wide, no telefoto) - Optimizado para Samsung S21 FE
-    window._arVideoConstraints = null;
-
-    async function detectMainCamera() {
-      try {
-        // Primero pedimos acceso genérico
-        const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        tempStream.getTracks().forEach(t => t.stop());
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(d => d.kind === 'videoinput');
-
-        console.log('📷 Cámaras disponibles:');
-        cameras.forEach((cam, i) => console.log(`  ${i}: ${cam.label}`));
-
-        // Filtramos cámaras wide/ultra/tele (Samsung S21 FE tiene wide como cámara 0)
-        const excludeKeywords = ['wide', 'ultra', 'ultra-wide', 'telephoto', 'tele', 'depth', 'macro', 'front', '0.6'];
-
-        // Buscamos la cámara principal (normalmente es la segunda trasera en Samsung)
-        let mainCam = cameras.find((cam, idx) => {
-          const label = cam.label.toLowerCase();
-          const isBack = label.includes('back') || label.includes('rear') || label.includes('camera2 0');
-          const notExcluded = !excludeKeywords.some(kw => label.includes(kw));
-          return isBack && notExcluded;
-        });
-
-        // Fallback: si no encontramos, tomamos la primera trasera que no sea wide
-        if (!mainCam) {
-          mainCam = cameras.find(cam => {
-            const label = cam.label.toLowerCase();
-            return !excludeKeywords.some(kw => label.includes(kw)) && !label.includes('front');
-          });
-        }
-
-        if (mainCam) {
-          console.log('✅ Cámara principal seleccionada:', mainCam.label);
-          // Configuramos constraints específicos para AR.js
-          window._arVideoConstraints = {
-            deviceId: { exact: mainCam.deviceId },
-            facingMode: 'environment',
-            width: { ideal: 640 },
-            height: { ideal: 480 }
-          };
-        } else {
-          console.warn('⚠️ No se detectó cámara principal, usando default');
-        }
-      } catch(e) {
-        console.warn('❌ Error detectando cámara:', e);
-      }
-    }
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
-  <!-- Componente personalizado de smoothing extra agresivo -->
-  <script>
-    AFRAME.registerComponent('smooth-transform', {
-      schema: {
-        enabled: { type: 'boolean', default: true },
-        factor: { type: 'number', default: 0.15 } // Más bajo = más suave (0.05-0.3)
-      },
-      init: function() {
-        this.targetPosition = new THREE.Vector3();
-        this.targetRotation = new THREE.Euler();
-        this.targetQuaternion = new THREE.Quaternion();
-        this.currentQuaternion = new THREE.Quaternion();
-      },
-      tick: function(time, delta) {
-        if (!this.data.enabled) return;
-
-        const object3D = this.el.object3D;
-        const factor = this.data.factor;
-
-        // Suavizado de posición (lerp)
-        this.targetPosition.copy(object3D.position);
-        object3D.position.lerp(this.targetPosition, factor);
-
-        // Suavizado de rotación (slerp)
-        this.currentQuaternion.copy(object3D.quaternion);
-        this.targetQuaternion.setFromEuler(object3D.rotation);
-        object3D.quaternion.slerpQuaternions(
-          this.currentQuaternion,
-          this.targetQuaternion,
-          factor
-        );
-      }
-    });
-  </script>
+  <title>AR Viewer — Selecciona tu experiencia</title>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
       font-family: 'Space Mono', monospace;
-      background: #0a0a0a;
-      overflow: hidden;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow-x: hidden;
     }
 
-    /* Overlay UI */
-    #ui-overlay {
+    /* Animated background particles */
+    .particles {
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
+      overflow: hidden;
+      z-index: 0;
       pointer-events: none;
-      z-index: 100;
     }
 
-    /* Top bar */
-    #topbar {
+    .particle {
       position: absolute;
-      top: 0; left: 0; right: 0;
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      width: 2px;
+      height: 2px;
+      background: #00ff88;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: float 20s infinite;
     }
 
-    #logo {
-      font-size: 13px;
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); }
+      100% { transform: translateY(-100vh) translateX(100px); }
+    }
+
+    .container {
+      max-width: 900px;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    h1 {
+      font-size: clamp(32px, 8vw, 48px);
       font-weight: 700;
-      letter-spacing: 3px;
-      color: #00ff88;
+      letter-spacing: 4px;
+      color: #fff;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+    }
+
+    .logo-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      display: block;
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5));
+      }
+      50% {
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.8));
+      }
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #888;
+      letter-spacing: 2px;
       text-transform: uppercase;
     }
 
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #ff4444;
-      box-shadow: 0 0 8px #ff4444;
-      animation: pulse 1.5s ease-in-out infinite;
-      display: inline-block;
-      margin-right: 8px;
-    }
-    #status-dot.found {
-      background: #00ff88;
-      box-shadow: 0 0 8px #00ff88;
-      animation: none;
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
     }
 
-    #status-text {
-      font-size: 11px;
-      color: #aaa;
-      letter-spacing: 1px;
-    }
-
-    /* Instruction card */
-    #instruction-card {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10, 10, 10, 0.85);
-      border: 1px solid rgba(0, 255, 136, 0.3);
-      border-radius: 12px;
-      padding: 18px 28px;
+    .card {
+      background: rgba(20, 20, 30, 0.8);
+      border: 2px solid rgba(0, 255, 136, 0.2);
+      border-radius: 16px;
+      padding: 40px 30px;
       text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
       backdrop-filter: blur(10px);
-      transition: opacity 0.5s ease;
-      min-width: 260px;
+      position: relative;
+      overflow: hidden;
     }
 
-    #instruction-card.hidden {
-      opacity: 0;
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+      transition: left 0.5s;
     }
 
-    #instruction-card .icon {
-      font-size: 28px;
-      margin-bottom: 8px;
+    .card:hover::before {
+      left: 100%;
+    }
+
+    .card:hover {
+      border-color: #00ff88;
+      transform: translateY(-8px);
+      box-shadow: 0 10px 40px rgba(0, 255, 136, 0.3);
+    }
+
+    .card-icon {
+      font-size: 56px;
+      margin-bottom: 20px;
       display: block;
     }
 
-    #instruction-card p {
-      font-size: 12px;
-      color: #ccc;
-      line-height: 1.6;
-      letter-spacing: 0.5px;
+    .card h2 {
+      font-size: 20px;
+      color: #00ff88;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
     }
 
-    #instruction-card strong {
+    .card p {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .card .features {
+      text-align: left;
+      margin-bottom: 25px;
+    }
+
+    .card .features li {
+      font-size: 12px;
+      color: #ccc;
+      margin-bottom: 8px;
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .card .features li::before {
+      content: '▸';
+      position: absolute;
+      left: 0;
       color: #00ff88;
     }
 
-    /* Corner scan lines aesthetic */
-    .corner {
-      position: absolute;
-      width: 30px; height: 30px;
-    }
-    .corner-tl { top: 70px; left: 20px; border-top: 2px solid #00ff88; border-left: 2px solid #00ff88; }
-    .corner-tr { top: 70px; right: 20px; border-top: 2px solid #00ff88; border-right: 2px solid #00ff88; }
-    .corner-bl { bottom: 130px; left: 20px; border-bottom: 2px solid #00ff88; border-left: 2px solid #00ff88; }
-    .corner-br { bottom: 130px; right: 20px; border-bottom: 2px solid #00ff88; border-right: 2px solid #00ff88; }
-
-    /* Scan line animation */
-    #scan-line {
-      position: absolute;
-      top: 70px;
-      left: 20px;
-      right: 20px;
-      height: 1px;
-      background: linear-gradient(to right, transparent, #00ff88, transparent);
-      opacity: 0.6;
-      animation: scan 3s linear infinite;
-    }
-
-    @keyframes scan {
-      0%   { top: 70px; opacity: 0.6; }
-      48%  { opacity: 0.6; }
-      50%  { top: calc(100% - 130px); opacity: 0; }
-      51%  { top: 70px; opacity: 0; }
-      52%  { opacity: 0.6; }
-      100% { top: calc(100% - 130px); opacity: 0.6; }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
-
-    /* Camera permission overlay */
-    #permission-screen {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      gap: 20px;
-      padding: 40px;
-      text-align: center;
-    }
-
-    #permission-screen .big-icon { font-size: 64px; }
-
-    #permission-screen h1 {
-      font-size: 18px;
-      color: #fff;
-      letter-spacing: 2px;
-      font-weight: 700;
-    }
-
-    #permission-screen p {
-      font-size: 13px;
-      color: #888;
-      line-height: 1.7;
-      max-width: 280px;
-    }
-
-    #start-btn {
-      pointer-events: all;
+    .btn {
+      display: inline-block;
       background: transparent;
       border: 1px solid #00ff88;
       color: #00ff88;
       font-family: 'Space Mono', monospace;
       font-size: 13px;
-      letter-spacing: 3px;
-      padding: 14px 32px;
+      letter-spacing: 2px;
+      padding: 12px 32px;
       cursor: pointer;
       text-transform: uppercase;
       border-radius: 6px;
       transition: all 0.2s;
-      margin-top: 10px;
+      text-decoration: none;
+      position: relative;
+      overflow: hidden;
     }
 
-    #start-btn:hover {
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 0; height: 0;
+      border-radius: 50%;
       background: #00ff88;
+      transform: translate(-50%, -50%);
+      transition: width 0.3s, height 0.3s;
+      z-index: -1;
+    }
+
+    .btn:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .btn:hover {
       color: #0a0a0a;
     }
 
-    #hint {
+    /* Badge */
+    .badge {
+      display: inline-block;
+      background: rgba(0, 255, 136, 0.2);
+      color: #00ff88;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    footer p {
       font-size: 11px;
       color: #444;
       letter-spacing: 1px;
+    }
+
+    footer a {
+      color: #00ff88;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: #fff;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-size: 32px;
+        letter-spacing: 2px;
+      }
+
+      .logo-icon {
+        font-size: 48px;
+      }
     }
   </style>
 </head>
 <body>
 
-  <!-- Permission / Start Screen -->
-  <div id="permission-screen">
-    <div class="big-icon">📷</div>
-    <h1>AR VIEWER</h1>
-    <p>Apunta tu cámara al <strong style="color:#00ff88">marcador #3</strong> para ver el modelo 3D en realidad aumentada.</p>
-    <button id="start-btn" onclick="startAR()">INICIAR CÁMARA</button>
-    <p id="hint">Necesita acceso a la cámara para funcionar</p>
-  </div>
+  <!-- Animated background -->
+  <div class="particles" id="particles"></div>
 
-  <!-- AR Scene (hidden until started) -->
-  <div id="ar-container" style="display:none; width:100%; height:100vh;">
-    <a-scene
-      embedded
-      arjs="sourceType: webcam;
-            debugUIEnabled: false;
-            detectionMode: mono_and_matrix;
-            matrixCodeType: 3x3_HAMMING63;
-            trackingMethod: best;
-            maxDetectionRate: 60;
-            canvasWidth: 640;
-            canvasHeight: 480;
-            minConfidence: 0.6;
-            cameraParametersUrl: https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat;
-            facingMode: environment;"
-      renderer="logarithmicDepthBuffer: true;
-                antialias: true;
-                colorManagement: true;
-                sortObjects: true;
-                physicallyCorrectLights: true;
-                maxCanvasWidth: 640;
-                maxCanvasHeight: 480;"
-      vr-mode-ui="enabled: false"
-      style="width:100%;height:100%;"
-    >
-      <!-- Assets -->
-      <a-assets>
-        <!-- Modelo cargado directamente en la entidad -->
-      </a-assets>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <span class="logo-icon">🔮</span>
+      <h1>AR Viewer</h1>
+      <p class="subtitle">Elige tu experiencia AR</p>
+    </header>
 
-      <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking optimizado -->
-      <a-marker
-        type="barcode"
-        value="3"
-        id="marker-3"
-        emitevents="true"
-        smooth="true"
-        smoothCount="20"
-        smoothTolerance="0.005"
-        smoothThreshold="4"
-      >
+    <!-- Cards Grid -->
+    <div class="cards-grid">
 
-        <!-- ========== TARJETA DE PRESENTACIÓN: GALLINA & HUEVOS ========== -->
-
-        <!-- Base / Plataforma -->
-        <a-cylinder
-          position="0 0.05 0"
-          radius="1.2"
-          height="0.1"
-          color="#8B4513"
-          material="metalness: 0.3; roughness: 0.7;"
-        ></a-cylinder>
-
-        <!-- Pasto decorativo (base verde) -->
-        <a-cylinder
-          position="0 0.11 0"
-          radius="1.15"
-          height="0.02"
-          color="#4CAF50"
-        ></a-cylinder>
-
-        <!-- ========== GALLINA ESTILIZADA (centro) ========== -->
-        <a-entity id="gallina-group" position="0 0.4 0">
-
-          <!-- Cuerpo (esfera ovalada blanca) -->
-          <a-sphere
-            position="0 0.3 0"
-            radius="0.35"
-            scale="1 1.1 0.9"
-            color="#FFFFFF"
-            material="roughness: 0.8;"
-          ></a-sphere>
-
-          <!-- Cabeza (esfera más pequeña) -->
-          <a-sphere
-            position="0 0.65 0.15"
-            radius="0.18"
-            color="#FFFFFF"
-            material="roughness: 0.8;"
-          ></a-sphere>
-
-          <!-- Pico (cono naranja) -->
-          <a-cone
-            position="0 0.63 0.3"
-            radius-bottom="0.06"
-            radius-top="0.01"
-            height="0.12"
-            rotation="90 0 0"
-            color="#FF9800"
-          ></a-cone>
-
-          <!-- Cresta (forma ondulada - usando esferas) -->
-          <a-sphere position="-0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
-          <a-sphere position="0 0.78 0.12" radius="0.09" color="#FF5252" scale="0.9 1.3 0.6"></a-sphere>
-          <a-sphere position="0.05 0.75 0.15" radius="0.08" color="#FF5252" scale="0.8 1.2 0.6"></a-sphere>
-
-          <!-- Ojos -->
-          <a-sphere position="-0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
-          <a-sphere position="0.08 0.68 0.24" radius="0.03" color="#000000"></a-sphere>
-
-          <!-- Alas (elipses a los lados) -->
-          <a-sphere
-            position="-0.28 0.35 0"
-            radius="0.2"
-            scale="0.5 0.8 1.2"
-            color="#F5F5F5"
-            material="roughness: 0.7;"
-            rotation="0 0 -20"
-          ></a-sphere>
-          <a-sphere
-            position="0.28 0.35 0"
-            radius="0.2"
-            scale="0.5 0.8 1.2"
-            color="#F5F5F5"
-            material="roughness: 0.7;"
-            rotation="0 0 20"
-          ></a-sphere>
-
-          <!-- Cola (abanico de plumas) -->
-          <a-box position="0 0.45 -0.32" width="0.15" height="0.25" depth="0.05" color="#E0E0E0" rotation="30 0 0"></a-box>
-          <a-box position="-0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 -15 0"></a-box>
-          <a-box position="0.08 0.48 -0.35" width="0.12" height="0.22" depth="0.05" color="#EEEEEE" rotation="35 15 0"></a-box>
-
-          <!-- Patas (cilindros naranjas) -->
-          <a-cylinder position="-0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
-          <a-cylinder position="0.12 0.08 0.08" radius="0.03" height="0.18" color="#FF9800"></a-cylinder>
-
-          <!-- Pies (conos achatados) -->
-          <a-cone position="-0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800" rotation="0 0 0"></a-cone>
-          <a-cone position="0.12 -0.01 0.12" radius-bottom="0.08" height="0.02" color="#FF9800" rotation="0 0 0"></a-cone>
-
-          <!-- Animación: Balanceo suave -->
-          <a-animation
-            attribute="rotation"
-            from="0 0 0"
-            to="0 360 0"
-            dur="8000"
-            repeat="indefinite"
-            easing="linear"
-          ></a-animation>
-
-        </a-entity>
-
-        <!-- ========== HUEVOS DECORATIVOS (alrededor) ========== -->
-
-        <!-- Huevo 1 (frontal izquierda) -->
-        <a-entity position="-0.6 0.15 0.5">
-          <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
-            <a-animation attribute="position" from="-0.6 0.15 0.5" to="-0.6 0.2 0.5" dur="1500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-          </a-sphere>
-        </a-entity>
-
-        <!-- Huevo 2 (frontal derecha) -->
-        <a-entity position="0.6 0.15 0.5">
-          <a-sphere radius="0.12" scale="1 1.3 1" color="#FFF8DC" material="roughness: 0.4; metalness: 0.1;">
-            <a-animation attribute="position" from="0.6 0.15 0.5" to="0.6 0.18 0.5" dur="1800" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-          </a-sphere>
-        </a-entity>
-
-        <!-- Huevo 3 (izquierda) -->
-        <a-entity position="-0.8 0.15 0">
-          <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
-            <a-animation attribute="position" from="-0.8 0.15 0" to="-0.8 0.19 0" dur="2000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-          </a-sphere>
-        </a-entity>
-
-        <!-- Huevo 4 (derecha) -->
-        <a-entity position="0.8 0.15 0">
-          <a-sphere radius="0.11" scale="1 1.3 1" color="#FFFACD" material="roughness: 0.4; metalness: 0.1;">
-            <a-animation attribute="position" from="0.8 0.15 0" to="0.8 0.17 0" dur="1700" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-          </a-sphere>
-        </a-entity>
-
-        <!-- Huevo 5 (atrás izquierda) -->
-        <a-sphere position="-0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
-
-        <!-- Huevo 6 (atrás derecha) -->
-        <a-sphere position="0.5 0.13 -0.5" radius="0.1" scale="1 1.3 1" color="#FFF5E1" material="roughness: 0.4; metalness: 0.1;"></a-sphere>
-
-        <!-- ========== ELEMENTOS DECORATIVOS ========== -->
-
-        <!-- Granos de maíz (pequeñas esferas amarillas) -->
-        <a-sphere position="-0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
-        <a-sphere position="-0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
-        <a-sphere position="-0.92 0.12 0.25" radius="0.04" color="#FFD700"></a-sphere>
-
-        <a-sphere position="0.9 0.12 0.3" radius="0.04" color="#FFD700"></a-sphere>
-        <a-sphere position="0.85 0.12 0.35" radius="0.04" color="#FFD700"></a-sphere>
-        <a-sphere position="0.92 0.12 0.25" radius="0.04" color="#FFD700"></a-sphere>
-
-        <!-- Plumitas flotantes (detalles) -->
-        <a-plane
-          position="-0.4 0.9 0.3"
-          width="0.08"
-          height="0.12"
-          color="#FFFFFF"
-          opacity="0.8"
-          rotation="20 30 10"
-        >
-          <a-animation attribute="position" from="-0.4 0.9 0.3" to="-0.4 1.1 0.3" dur="3000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-        </a-plane>
-
-        <a-plane
-          position="0.4 0.85 0.2"
-          width="0.09"
-          height="0.13"
-          color="#F5F5F5"
-          opacity="0.7"
-          rotation="-15 -20 -10"
-        >
-          <a-animation attribute="position" from="0.4 0.85 0.2" to="0.4 1.05 0.2" dur="3500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
-        </a-plane>
-
-        <!-- ========== ILUMINACIÓN ========== -->
-        <a-light type="ambient" color="#FFFFFF" intensity="0.6"></a-light>
-        <a-light type="directional" color="#FFFACD" intensity="0.8" position="2 3 1"></a-light>
-        <a-light type="point" color="#FFE4B5" intensity="0.5" position="0 1.5 0"></a-light>
-
-      </a-marker>
-
-      <!-- Cámara AR -->
-      <a-entity camera></a-entity>
-    </a-scene>
-  </div>
-
-  <!-- UI Overlay (visible durante AR) -->
-  <div id="ui-overlay" style="display:none;">
-    <div id="topbar">
-      <span id="logo">◈ AR Viewer</span>
-      <div style="display:flex; align-items:center;">
-        <span id="status-dot"></span>
-        <span id="status-text">BUSCANDO MARCADOR</span>
+      <!-- Card 1: Marker Tracking -->
+      <div class="card" onclick="window.location.href='index-marker.html'">
+        <span class="card-icon">📷</span>
+        <span class="badge">Clásico</span>
+        <h2>Marcador Físico</h2>
+        <p>Usa un marcador impreso para activar el modelo 3D con máxima estabilidad</p>
+        <ul class="features">
+          <li>Tracking ultra estable</li>
+          <li>Requiere marcador impreso #3</li>
+          <li>Cámara trasera</li>
+          <li>Ideal para demostraciones</li>
+        </ul>
+        <a href="index-marker.html" class="btn">Iniciar</a>
       </div>
+
+      <!-- Card 2: Hand Tracking -->
+      <div class="card" onclick="window.location.href='index-hand-tracking.html'">
+        <span class="card-icon">✋</span>
+        <span class="badge">Innovador</span>
+        <h2>Hand Tracking</h2>
+        <p>El modelo flota sobre tu palma y rota cuando mueves tu mano, sin marcadores</p>
+        <ul class="features">
+          <li>Sin marcadores necesarios</li>
+          <li>Rotación en tiempo real</li>
+          <li>Cámara trasera</li>
+          <li>Interacción natural con manos</li>
+        </ul>
+        <a href="index-hand-tracking.html" class="btn">Iniciar</a>
+      </div>
+
     </div>
 
-    <!-- Corners -->
-    <div class="corner corner-tl"></div>
-    <div class="corner corner-tr"></div>
-    <div class="corner corner-bl"></div>
-    <div class="corner corner-br"></div>
-    <div id="scan-line"></div>
-
-    <!-- Instruction card -->
-    <div id="instruction-card">
-      <span class="icon">🎯</span>
-      <p>Apunta la cámara al <strong>marcador #3</strong><br>mantenlo bien iluminado y a 15-30cm de distancia</p>
-    </div>
+    <!-- Footer -->
+    <footer>
+      <p>Desarrollado con A-Frame, AR.js & MediaPipe Hands</p>
+    </footer>
   </div>
 
   <script>
-    async function startAR() {
-      // Detectar cámara principal antes de iniciar AR.js
-      await detectMainCamera();
+    // Generar partículas animadas
+    const particlesContainer = document.getElementById('particles');
+    const particleCount = 30;
 
-      document.getElementById('permission-screen').style.display = 'none';
-      document.getElementById('ar-container').style.display = 'block';
-      document.getElementById('ui-overlay').style.display = 'block';
-
-      // Inyectar constraints de video si detectamos una cámara específica
-      if (window._arVideoConstraints) {
-        // Interceptamos getUserMedia para forzar nuestros constraints
-        const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-        navigator.mediaDevices.getUserMedia = function(constraints) {
-          if (constraints && constraints.video) {
-            console.log('🔧 Aplicando constraints personalizados:', window._arVideoConstraints);
-            constraints.video = window._arVideoConstraints;
-          }
-          return originalGetUserMedia(constraints);
-        };
-      }
-
-      // Persistent tracking - mantiene contenido visible por 2seg al perder marcador
-      let markerLostTimeout = null;
-      let isMarkerVisible = false;
-
-      setTimeout(() => {
-        const marker = document.getElementById('marker-3');
-        if (!marker) {
-          console.error('❌ Marcador #3 no encontrado en el DOM');
-          return;
-        }
-
-        console.log('✅ Marcador #3 registrado con persistent tracking activado');
-
-        // Debug: verificar carga del modelo 3D
-        setTimeout(() => {
-          const gallinaEntity = document.getElementById('gallina-entity');
-          console.log('🔍 Buscando entidad gallina:', gallinaEntity);
-
-          if (gallinaEntity) {
-            console.log('🔍 Atributo gltf-model:', gallinaEntity.getAttribute('gltf-model'));
-
-            gallinaEntity.addEventListener('model-loaded', () => {
-              console.log('✅ Modelo de gallina cargado correctamente');
-              console.log('📦 Objeto 3D:', gallinaEntity.object3D);
-            });
-
-            gallinaEntity.addEventListener('model-error', (e) => {
-              console.error('❌ Error cargando modelo:', e.detail);
-            });
-
-            // Verificar después de 3 segundos si cargó
-            setTimeout(() => {
-              const hasModel = gallinaEntity.getObject3D('mesh');
-              console.log('🔍 ¿Tiene mesh después de 3seg?:', !!hasModel);
-            }, 3000);
-          } else {
-            console.error('❌ No se encontró la entidad gallina-entity');
-          }
-        }, 3000);
-
-        marker.addEventListener('markerFound', () => {
-          // Limpiar timeout si estaba esperando ocultar
-          if (markerLostTimeout) {
-            clearTimeout(markerLostTimeout);
-            markerLostTimeout = null;
-          }
-
-          isMarkerVisible = true;
-          console.log('🎯 MARCADOR #3 DETECTADO - TRACKING ACTIVO');
-          document.getElementById('status-dot').classList.add('found');
-          document.getElementById('status-text').textContent = 'TRACKING ACTIVO';
-          document.getElementById('instruction-card').classList.add('hidden');
-        });
-
-        marker.addEventListener('markerLost', () => {
-          console.log('⏳ Marcador perdido temporalmente - esperando 2 seg...');
-
-          // No ocultar inmediatamente, esperar 2 segundos por si vuelve a detectar
-          markerLostTimeout = setTimeout(() => {
-            if (!isMarkerVisible) {
-              console.log('❌ Marcador perdido definitivamente');
-              document.getElementById('status-dot').classList.remove('found');
-              document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #3';
-              document.getElementById('instruction-card').classList.remove('hidden');
-            }
-          }, 2000); // Mantener visible 2 segundos
-
-          isMarkerVisible = false;
-        });
-      }, 2000);
+    for (let i = 0; i < particleCount; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 20 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      particlesContainer.appendChild(particle);
     }
   </script>
 
