@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR Viewer — MindAR Mode</title>
+
+  <!-- A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe-master.min.js"></script>
+
+  <!-- MindAR -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <!-- ========== COMPONENTE DE GIROSCOPIO ========== -->
+  <script>
+    if (typeof AFRAME !== 'undefined') {
+      AFRAME.registerComponent('device-orientation-camera', {
+        schema: {
+          enabled: { type: 'boolean', default: false }
+        },
+
+        init: function() {
+          this.alpha = 0;
+          this.beta = 0;
+          this.gamma = 0;
+          this.listening = false;
+          this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
+          console.log('🔧 Componente device-orientation-camera iniciado');
+        },
+
+        update: function() {
+          if (this.data.enabled && !this.listening) {
+            this.requestPermission();
+          } else if (!this.data.enabled && this.listening) {
+            window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+            this.listening = false;
+            console.log('⏸️ Giroscopio desactivado');
+          }
+        },
+
+        requestPermission: function() {
+          const self = this;
+
+          if (typeof DeviceOrientationEvent !== 'undefined' &&
+              typeof DeviceOrientationEvent.requestPermission === 'function') {
+            console.log('📱 Solicitando permiso de orientación (iOS)...');
+            DeviceOrientationEvent.requestPermission()
+              .then(response => {
+                if (response === 'granted') {
+                  console.log('✅ Permiso de orientación concedido');
+                  self.startListening();
+                } else {
+                  console.warn('❌ Permiso de orientación denegado');
+                }
+              })
+              .catch(error => {
+                console.error('Error solicitando permiso:', error);
+              });
+          } else {
+            console.log('📱 Activando orientación (Android/otros)...');
+            this.startListening();
+          }
+        },
+
+        startListening: function() {
+          window.addEventListener('deviceorientation', this.onDeviceOrientation);
+          this.listening = true;
+          console.log('✅ Escuchando eventos de orientación del dispositivo');
+        },
+
+        onDeviceOrientation: function(event) {
+          if (!this.data.enabled) return;
+
+          this.alpha = event.alpha || 0;
+          this.beta = event.beta || 0;
+          this.gamma = event.gamma || 0;
+        },
+
+        tick: function() {
+          if (!this.data.enabled || !this.listening) return;
+
+          const camera = this.el.object3D;
+          const degToRad = Math.PI / 180;
+
+          camera.rotation.x = this.beta * degToRad;
+          camera.rotation.y = this.alpha * degToRad;
+          camera.rotation.z = -this.gamma * degToRad;
+        }
+      });
+
+      // ========== COMPONENTE DE SMOOTHING AGRESIVO ==========
+      AFRAME.registerComponent('smooth-transform', {
+        schema: {
+          factor: { type: 'number', default: 0.15 }
+        },
+
+        init: function() {
+          this.targetPosition = new THREE.Vector3();
+          this.targetRotation = new THREE.Euler();
+          this.currentPosition = new THREE.Vector3();
+          this.currentRotation = new THREE.Euler();
+        },
+
+        tick: function() {
+          const object3D = this.el.object3D;
+          const factor = this.data.factor;
+
+          // Smooth position
+          this.targetPosition.copy(object3D.position);
+          this.currentPosition.lerp(this.targetPosition, factor);
+          object3D.position.copy(this.currentPosition);
+
+          // Smooth rotation
+          this.targetRotation.copy(object3D.rotation);
+          this.currentRotation.x += (this.targetRotation.x - this.currentRotation.x) * factor;
+          this.currentRotation.y += (this.targetRotation.y - this.currentRotation.y) * factor;
+          this.currentRotation.z += (this.targetRotation.z - this.currentRotation.z) * factor;
+          object3D.rotation.copy(this.currentRotation);
+        }
+      });
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #0a0a0a;
+      overflow: hidden;
+    }
+
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+
+    #logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #00ff88;
+      text-transform: uppercase;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 8px #ff4444;
+      animation: pulse 1.5s ease-in-out infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    #status-dot.found {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: none;
+    }
+    #status-dot.gyro {
+      background: #0088ff;
+      box-shadow: 0 0 8px #0088ff;
+      animation: none;
+    }
+
+    #status-text {
+      font-size: 11px;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+
+    #instruction-card {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 18px 28px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.5s ease;
+      min-width: 260px;
+    }
+
+    #instruction-card.hidden {
+      opacity: 0;
+    }
+
+    #instruction-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    #instruction-card p {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+    }
+
+    #instruction-card strong {
+      color: #00ff88;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #permission-screen {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 20px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    #permission-screen .big-icon { font-size: 64px; }
+
+    #permission-screen h1 {
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    #permission-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.7;
+      max-width: 320px;
+    }
+
+    #start-btn, #gyro-btn {
+      pointer-events: all;
+      background: transparent;
+      border: 1px solid #00ff88;
+      color: #00ff88;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      padding: 14px 32px;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+
+    #start-btn:hover, #gyro-btn:hover {
+      background: #00ff88;
+      color: #0a0a0a;
+    }
+
+    #gyro-btn {
+      border-color: #0088ff;
+      color: #0088ff;
+      display: none;
+      margin-top: 15px;
+    }
+
+    #gyro-btn:hover {
+      background: #0088ff;
+      color: #0a0a0a;
+    }
+
+    #gyro-btn.show {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Permission Screen -->
+  <div id="permission-screen">
+    <div class="big-icon">🧠</div>
+    <h1>MINDAR MODE</h1>
+    <p><strong style="color:#00ff88">Detección inteligente</strong> con IA<br>
+    Apunta a la imagen objetivo y el modelo aparecerá<br>
+    <small style="color:#666;">No necesitas barcode, usa imágenes naturales</small></p>
+    <button id="start-btn" onclick="startAR()">INICIAR</button>
+    <button id="gyro-btn" class="show" onclick="toggleGyro()">ACTIVAR GIROSCOPIO</button>
+    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere cámara trasera</p>
+  </div>
+
+  <!-- AR Scene -->
+  <a-scene
+    id="ar-scene"
+    mindar-image="imageTargetSrc: marker/targets.mind;
+                  autoStart: false;
+                  uiLoading: no;
+                  uiError: no;
+                  uiScanning: no;
+                  filterMinCF: 0.0001;
+                  filterBeta: 10;
+                  warmupTolerance: 5;
+                  missTolerance: 5;"
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    style="display:none;"
+  >
+
+    <!-- Target Entity -->
+    <a-entity id="target-entity" mindar-image-target="targetIndex: 0" smooth-transform="factor: 0.15">
+
+      <!-- ========== GALLINA 3D PROCEDURAL ========== -->
+
+      <!-- Plataforma base circular -->
+      <a-cylinder
+        color="#8B4513"
+        height="0.05"
+        radius="1.2"
+        position="0 -0.5 0"
+        material="roughness: 0.8; metalness: 0.2;"
+      ></a-cylinder>
+
+      <!-- Pasto decorativo -->
+      <a-ring
+        color="#2d5016"
+        radius-inner="0.9"
+        radius-outer="1.15"
+        position="0 -0.47 0"
+        rotation="-90 0 0"
+        material="opacity: 0.8; side: double;"
+      ></a-ring>
+
+      <!-- Cuerpo de la gallina (esfera blanca) -->
+      <a-sphere
+        color="#ffffff"
+        radius="0.35"
+        position="0 0.1 0"
+        material="roughness: 0.3;"
+      ></a-sphere>
+
+      <!-- Cabeza de la gallina -->
+      <a-sphere
+        color="#ffffff"
+        radius="0.22"
+        position="0 0.5 0.15"
+        material="roughness: 0.3;"
+      ></a-sphere>
+
+      <!-- Pico superior -->
+      <a-cone
+        color="#FFA500"
+        height="0.12"
+        radius-bottom="0.08"
+        radius-top="0.02"
+        position="0 0.5 0.35"
+        rotation="90 0 0"
+      ></a-cone>
+
+      <!-- Pico inferior -->
+      <a-cone
+        color="#FF8C00"
+        height="0.08"
+        radius-bottom="0.06"
+        radius-top="0.01"
+        position="0 0.45 0.35"
+        rotation="90 0 0"
+      ></a-cone>
+
+      <!-- Cresta (3 esferas rojas) -->
+      <a-sphere color="#ff0000" radius="0.08" position="-0.08 0.65 0.12"></a-sphere>
+      <a-sphere color="#ff0000" radius="0.09" position="0 0.68 0.1"></a-sphere>
+      <a-sphere color="#ff0000" radius="0.08" position="0.08 0.65 0.12"></a-sphere>
+
+      <!-- Barbilla -->
+      <a-sphere color="#ff0000" radius="0.06" position="0 0.38 0.3"></a-sphere>
+      <a-sphere color="#ff0000" radius="0.05" position="0 0.32 0.32"></a-sphere>
+
+      <!-- Ojos -->
+      <a-sphere color="#000000" radius="0.04" position="0.1 0.55 0.28"></a-sphere>
+      <a-sphere color="#000000" radius="0.04" position="-0.1 0.55 0.28"></a-sphere>
+      <a-sphere color="#ffffff" radius="0.02" position="0.11 0.56 0.3"></a-sphere>
+      <a-sphere color="#ffffff" radius="0.02" position="-0.09 0.56 0.3"></a-sphere>
+
+      <!-- Alas (2 esferas achatadas) -->
+      <a-sphere
+        color="#f0f0f0"
+        radius="0.25"
+        scale="0.8 1 0.4"
+        position="0.35 0.1 0"
+        material="roughness: 0.4;"
+      ></a-sphere>
+      <a-sphere
+        color="#f0f0f0"
+        radius="0.25"
+        scale="0.8 1 0.4"
+        position="-0.35 0.1 0"
+        material="roughness: 0.4;"
+      ></a-sphere>
+
+      <!-- Patas (4 cilindros naranjas) -->
+      <a-cylinder color="#FFA500" height="0.3" radius="0.04" position="0.12 -0.35 0.1"></a-cylinder>
+      <a-cylinder color="#FFA500" height="0.3" radius="0.04" position="-0.12 -0.35 0.1"></a-cylinder>
+      <a-box color="#FFA500" width="0.12" height="0.02" depth="0.08" position="0.12 -0.52 0.12"></a-box>
+      <a-box color="#FFA500" width="0.12" height="0.02" depth="0.08" position="-0.12 -0.52 0.12"></a-box>
+
+      <!-- Cola (conos blancos) -->
+      <a-cone
+        color="#ffffff"
+        height="0.3"
+        radius-bottom="0.12"
+        radius-top="0.02"
+        position="0 0.25 -0.3"
+        rotation="45 0 0"
+      ></a-cone>
+      <a-cone
+        color="#f5f5f5"
+        height="0.25"
+        radius-bottom="0.1"
+        radius-top="0.01"
+        position="0.08 0.28 -0.32"
+        rotation="50 15 0"
+      ></a-cone>
+      <a-cone
+        color="#f5f5f5"
+        height="0.25"
+        radius-bottom="0.1"
+        radius-top="0.01"
+        position="-0.08 0.28 -0.32"
+        rotation="50 -15 0"
+      ></a-cone>
+
+      <!-- ========== 6 HUEVOS ALREDEDOR ========== -->
+      <a-sphere color="#FFF8DC" radius="0.12" position="0.6 -0.38 0" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="0.6 -0.38 0" to="0.6 -0.32 0" dur="2000" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+      <a-sphere color="#FFF8DC" radius="0.12" position="-0.6 -0.38 0" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="-0.6 -0.38 0" to="-0.6 -0.33 0" dur="2200" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+      <a-sphere color="#FFF8DC" radius="0.12" position="0.3 -0.38 0.5" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="0.3 -0.38 0.5" to="0.3 -0.34 0.5" dur="1800" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+      <a-sphere color="#FFF8DC" radius="0.12" position="-0.3 -0.38 0.5" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="-0.3 -0.38 0.5" to="-0.3 -0.35 0.5" dur="2100" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+      <a-sphere color="#FFF8DC" radius="0.12" position="0.3 -0.38 -0.5" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="0.3 -0.38 -0.5" to="0.3 -0.33 -0.5" dur="1900" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+      <a-sphere color="#FFF8DC" radius="0.12" position="-0.3 -0.38 -0.5" scale="0.9 1.1 0.9">
+        <a-animation attribute="position" from="-0.3 -0.38 -0.5" to="-0.3 -0.34 -0.5" dur="2300" direction="alternate" repeat="indefinite"></a-animation>
+      </a-sphere>
+
+      <!-- ========== GRANOS DE MAÍZ (decoración) ========== -->
+      <a-sphere color="#FFD700" radius="0.035" position="0.8 -0.45 0.3"></a-sphere>
+      <a-sphere color="#FFD700" radius="0.04" position="0.75 -0.45 0.4"></a-sphere>
+      <a-sphere color="#FFD700" radius="0.035" position="0.85 -0.45 0.35"></a-sphere>
+      <a-sphere color="#FFD700" radius="0.038" position="-0.8 -0.45 0.3"></a-sphere>
+      <a-sphere color="#FFD700" radius="0.036" position="-0.75 -0.45 0.4"></a-sphere>
+
+      <!-- ========== PLUMITAS FLOTANTES ========== -->
+      <a-cone color="#ffffff" height="0.08" radius-bottom="0.03" radius-top="0.005" position="0.5 0.8 0.2" rotation="20 30 10" material="opacity: 0.7; transparent: true;">
+        <a-animation attribute="position" from="0.5 0.8 0.2" to="0.45 0.6 0.15" dur="3000" direction="alternate" repeat="indefinite"></a-animation>
+        <a-animation attribute="rotation" from="20 30 10" to="40 60 -10" dur="3000" direction="alternate" repeat="indefinite"></a-animation>
+      </a-cone>
+      <a-cone color="#f5f5f5" height="0.07" radius-bottom="0.025" radius-top="0.005" position="-0.4 0.9 0.3" rotation="-15 45 20" material="opacity: 0.6; transparent: true;">
+        <a-animation attribute="position" from="-0.4 0.9 0.3" to="-0.35 0.7 0.25" dur="3500" direction="alternate" repeat="indefinite"></a-animation>
+        <a-animation attribute="rotation" from="-15 45 20" to="10 80 -15" dur="3500" direction="alternate" repeat="indefinite"></a-animation>
+      </a-cone>
+
+      <!-- Animación de rotación de toda la gallina -->
+      <a-animation
+        attribute="rotation"
+        from="0 0 0"
+        to="0 360 0"
+        dur="15000"
+        repeat="indefinite"
+        easing="linear"
+      ></a-animation>
+
+      <!-- Iluminación -->
+      <a-light type="ambient" intensity="0.8"></a-light>
+      <a-light type="directional" intensity="1.5" position="2 3 1"></a-light>
+      <a-light type="point" intensity="1.0" position="0 1 0" color="#ffffff"></a-light>
+    </a-entity>
+
+    <!-- Cámara -->
+    <a-camera
+      id="ar-camera"
+      device-orientation-camera="enabled: false"
+      look-controls="enabled: false"
+      wasd-controls="enabled: false"
+    ></a-camera>
+  </a-scene>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay" style="display:none;">
+    <div id="topbar">
+      <span id="logo">🧠 MINDAR</span>
+      <div style="display:flex; align-items:center;">
+        <span id="status-dot"></span>
+        <span id="status-text">BUSCANDO IMAGEN</span>
+      </div>
+    </div>
+
+    <div id="instruction-card">
+      <span class="icon">🖼️</span>
+      <p><strong>Apunta a la imagen objetivo</strong><br>El modelo aparecerá automáticamente</p>
+    </div>
+  </div>
+
+  <!-- ========== LÓGICA PRINCIPAL ========== -->
+  <script>
+    let isGyroMode = false;
+    let targetDetected = false;
+
+    async function startAR() {
+      try {
+        console.log('🚀 PASO 1: Iniciando MindAR...');
+
+        const permissionScreen = document.getElementById('permission-screen');
+        const arScene = document.getElementById('ar-scene');
+        const uiOverlay = document.getElementById('ui-overlay');
+
+        // Ocultar pantalla de permisos
+        permissionScreen.style.display = 'none';
+
+        // Mostrar escena y UI
+        arScene.style.display = 'block';
+        uiOverlay.style.display = 'block';
+
+        console.log('🚀 PASO 2: Esperando carga de MindAR...');
+
+        // Esperar a que la escena se cargue
+        const sceneEl = document.querySelector('a-scene');
+
+        if (sceneEl.hasLoaded) {
+          console.log('✅ MindAR ya estaba cargado');
+          initMindAR();
+        } else {
+          sceneEl.addEventListener('loaded', function() {
+            console.log('✅ MindAR cargado correctamente');
+            initMindAR();
+          });
+        }
+
+      } catch (error) {
+        console.error('❌ Error al iniciar MindAR:', error);
+        alert('Error: No se pudo iniciar MindAR.\n\n' + error.message);
+
+        // Volver a pantalla de permisos
+        document.getElementById('permission-screen').style.display = 'flex';
+        document.getElementById('ar-scene').style.display = 'none';
+        document.getElementById('ui-overlay').style.display = 'none';
+      }
+    }
+
+    function initMindAR() {
+      console.log('🚀 PASO 3: Iniciando sistema AR...');
+
+      const sceneEl = document.querySelector('a-scene');
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      const targetEntity = document.getElementById('target-entity');
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const instructionCard = document.getElementById('instruction-card');
+
+      // Iniciar MindAR
+      arSystem.start();
+      console.log('✅ Sistema MindAR iniciado');
+
+      // Evento: Target detectado
+      targetEntity.addEventListener('targetFound', () => {
+        if (!targetDetected) {
+          console.log('🎯 ¡IMAGEN DETECTADA!');
+          targetDetected = true;
+
+          statusDot.classList.add('found');
+          statusText.textContent = 'IMAGEN DETECTADA';
+
+          instructionCard.querySelector('.icon').textContent = '✅';
+          instructionCard.querySelector('p').innerHTML = '<strong>¡Imagen detectada!</strong><br>Modelo visible y tracking activo';
+
+          // Ocultar instrucciones después de 3 segundos
+          setTimeout(() => {
+            instructionCard.classList.add('hidden');
+          }, 3000);
+        }
+      });
+
+      // Evento: Target perdido
+      targetEntity.addEventListener('targetLost', () => {
+        console.log('⚠️ Imagen perdida, buscando...');
+
+        if (!isGyroMode) {
+          statusDot.classList.remove('found');
+          statusText.textContent = 'BUSCANDO IMAGEN';
+        }
+      });
+    }
+
+    function toggleGyro() {
+      const camera = document.getElementById('ar-camera');
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const instructionCard = document.getElementById('instruction-card');
+      const gyroBtn = document.getElementById('gyro-btn');
+
+      if (!isGyroMode) {
+        console.log('🔄 ACTIVANDO MODO GIROSCOPIO...');
+
+        isGyroMode = true;
+        camera.setAttribute('device-orientation-camera', 'enabled: true');
+
+        statusDot.classList.remove('found');
+        statusDot.classList.add('gyro');
+        statusText.textContent = 'MODO GIROSCOPIO ACTIVO';
+
+        instructionCard.classList.remove('hidden');
+        instructionCard.querySelector('.icon').textContent = '🔄';
+        instructionCard.querySelector('p').innerHTML = '<strong>Mueve tu móvil</strong><br>para ver desde todos los ángulos';
+
+        gyroBtn.textContent = 'DESACTIVAR GIROSCOPIO';
+
+        console.log('✅ Giroscopio activado');
+
+      } else {
+        console.log('⏸️ DESACTIVANDO MODO GIROSCOPIO...');
+
+        isGyroMode = false;
+        camera.setAttribute('device-orientation-camera', 'enabled: false');
+
+        statusDot.classList.remove('gyro');
+        if (targetDetected) {
+          statusDot.classList.add('found');
+          statusText.textContent = 'IMAGEN DETECTADA';
+        } else {
+          statusText.textContent = 'BUSCANDO IMAGEN';
+        }
+
+        instructionCard.querySelector('.icon').textContent = '🖼️';
+        instructionCard.querySelector('p').innerHTML = '<strong>Apunta a la imagen objetivo</strong><br>El modelo aparecerá automáticamente';
+
+        gyroBtn.textContent = 'ACTIVAR GIROSCOPIO';
+
+        console.log('✅ Giroscopio desactivado');
+      }
+
+      // Ocultar instrucciones después de 3 segundos
+      setTimeout(() => {
+        instructionCard.classList.add('hidden');
+      }, 3000);
+    }
+  </script>
+
+</body>
+</html>
