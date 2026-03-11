@@ -243,13 +243,13 @@
     vr-mode-ui="enabled: false"
     style="display:none; background: transparent;"
   >
-    <!-- Modelo 3D de la gallina (inicialmente oculto) -->
+    <!-- Modelo 3D (inicialmente oculto) -->
     <a-entity id="hand-model" visible="false">
-      <!-- Modelo GLB de gallina -->
+      <!-- Modelo GLB de ejemplo (Duck del repositorio oficial glTF) -->
       <a-entity
-        gltf-model="modelos/Chicken.glb"
-        scale="0.3 0.3 0.3"
-        position="0 0 0"
+        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
+        scale="0.01 0.01 0.01"
+        position="0 -0.3 0"
         rotation="0 0 0"
       ></a-entity>
 
