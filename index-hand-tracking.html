@@ -65,6 +65,15 @@
       pointer-events: none;
     }
 
+    /* Asegurar que el canvas de A-Frame sea visible */
+    #ar-scene canvas {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
     /* UI Overlay */
     #ui-overlay {
       position: fixed;
@@ -245,18 +254,27 @@
   >
     <!-- Modelo 3D (inicialmente oculto) -->
     <a-entity id="hand-model" visible="false">
+
+      <!-- Cubo de DEBUG - para verificar que el renderizado funciona -->
+      <a-box
+        color="#FF0000"
+        scale="0.5 0.5 0.5"
+        position="0 0 0"
+        material="opacity: 0.8"
+      ></a-box>
+
       <!-- Modelo GLB de ejemplo (Duck del repositorio oficial glTF) -->
       <a-entity
         gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
-        scale="0.01 0.01 0.01"
-        position="0 -0.3 0"
+        scale="0.05 0.05 0.05"
+        position="0 0 0"
         rotation="0 0 0"
       ></a-entity>
 
       <!-- Iluminación -->
-      <a-light type="ambient" color="#FFFFFF" intensity="0.8"></a-light>
-      <a-light type="directional" color="#FFFACD" intensity="1.0" position="2 3 1"></a-light>
-      <a-light type="point" color="#FFE4B5" intensity="0.6" position="0 1.5 0"></a-light>
+      <a-light type="ambient" color="#FFFFFF" intensity="1.2"></a-light>
+      <a-light type="directional" color="#FFFFFF" intensity="1.5" position="2 3 1"></a-light>
+      <a-light type="point" color="#FFFFFF" intensity="1.0" position="0 0 0"></a-light>
     </a-entity>
 
     <!-- Cámara A-Frame -->
@@ -453,6 +471,15 @@
           y: lastHandRotation.y,
           z: lastHandRotation.z
         });
+
+        // Log continuo cada 60 frames (~1 segundo)
+        if (Math.random() < 0.017) {
+          console.log('📍 Posición actual:',
+            'X:', lastHandPosition.x.toFixed(2),
+            'Y:', lastHandPosition.y.toFixed(2),
+            'Z:', lastHandPosition.z.toFixed(2)
+          );
+        }
 
         // Mostrar modelo si estaba oculto
         if (!handDetected) {
