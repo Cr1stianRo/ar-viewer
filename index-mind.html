@@ -355,21 +355,30 @@
                   uiScanning: no;
                   filterMinCF: 0.001;
                   filterBeta: 100;
-                  warmupTolerance: 2;
-                  missTolerance: 10;
+                  warmupTolerance: 3;
+                  missTolerance: 15;
                   maxTrack: 1;"
     embedded
     color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights"
+    renderer="colorManagement: true, physicallyCorrectLights; antialias: true; precision: high;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     style="display:none;"
   >
 
     <!-- Target Entity -->
-    <a-entity id="target-entity" mindar-image-target="targetIndex: 0" smooth-transform="factor: 0.15">
+    <a-entity id="target-entity" mindar-image-target="targetIndex: 0">
 
-      <!-- ========== GALLINA 3D PROCEDURAL ========== -->
+      <!-- Cubo de debug para verificar que renderiza -->
+      <a-box
+        color="#ff0000"
+        position="0 0.5 0"
+        scale="0.3 0.3 0.3"
+        material="opacity: 0.5; transparent: true;"
+      ></a-box>
+
+      <!-- ========== GALLINA 3D PROCEDURAL (ESCALADA 2X) ========== -->
+      <a-entity scale="2 2 2">
 
       <!-- Plataforma base circular -->
       <a-cylinder
@@ -536,10 +545,12 @@
         easing="linear"
       ></a-animation>
 
+      </a-entity><!-- Fin contenedor escalado -->
+
       <!-- Iluminación -->
-      <a-light type="ambient" intensity="0.8"></a-light>
-      <a-light type="directional" intensity="1.5" position="2 3 1"></a-light>
-      <a-light type="point" intensity="1.0" position="0 1 0" color="#ffffff"></a-light>
+      <a-light type="ambient" intensity="1.2"></a-light>
+      <a-light type="directional" intensity="2.0" position="2 3 1"></a-light>
+      <a-light type="point" intensity="1.5" position="0 2 0" color="#ffffff"></a-light>
     </a-entity>
 
     <!-- Cámara -->
@@ -697,16 +708,17 @@
 
     async function enableContinuousFocus() {
       try {
-        console.log('🎥 Configurando autofocus continuo...');
+        console.log('🎥 Configurando autofocus AGRESIVO para AR...');
 
-        // Esperar un momento para que MindAR inicialice la cámara
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Esperar a que MindAR inicialice la cámara
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Obtener el video stream de MindAR
         const video = document.querySelector('video');
         if (!video || !video.srcObject) {
-          console.warn('⚠️ No se encontró video stream');
-          return;
+          console.warn('⚠️ No se encontró video stream, reintentando...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return enableContinuousFocus(); // Reintentar
         }
 
         const stream = video.srcObject;
@@ -719,38 +731,79 @@
 
         // Obtener capacidades de la cámara
         const capabilities = videoTrack.getCapabilities();
-        console.log('📹 Capacidades de cámara:', capabilities);
+        console.log('📹 Capacidades completas:', JSON.stringify(capabilities, null, 2));
 
-        // Aplicar constraints de focus
+        // ESTRATEGIA 1: Intentar modo manual con distancia fija (20-40cm)
+        if (capabilities.focusMode && capabilities.focusMode.includes('manual') && capabilities.focusDistance) {
+          try {
+            const minDist = capabilities.focusDistance.min || 0;
+            const maxDist = capabilities.focusDistance.max || 100;
+            // Distancia ideal para AR: 30cm (0.3m)
+            const idealDistance = Math.max(minDist, Math.min(0.3, maxDist));
+
+            await videoTrack.applyConstraints({
+              advanced: [{
+                focusMode: 'manual',
+                focusDistance: idealDistance
+              }]
+            });
+
+            console.log(`✅ MODO MANUAL: Focus fijado a ${idealDistance}m (ideal para AR)`);
+            const settings = videoTrack.getSettings();
+            console.log('📐 Settings aplicados:', settings);
+            return; // Salir si manual focus funcionó
+          } catch (error) {
+            console.warn('⚠️ Focus manual falló, intentando continuo...', error);
+          }
+        }
+
+        // ESTRATEGIA 2: Autofocus continuo como fallback
         const constraints = { advanced: [] };
 
-        // Autofocus continuo (crítico para evitar blur)
         if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
           constraints.advanced.push({ focusMode: 'continuous' });
-          console.log('✅ Autofocus continuo habilitado');
+          console.log('✅ Autofocus continuo como fallback');
         }
 
         // Exposición automática
         if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
           constraints.advanced.push({ exposureMode: 'continuous' });
-          console.log('✅ Exposición automática habilitada');
         }
 
         // White balance automático
         if (capabilities.whiteBalanceMode && capabilities.whiteBalanceMode.includes('continuous')) {
           constraints.advanced.push({ whiteBalanceMode: 'continuous' });
-          console.log('✅ Balance de blancos automático habilitado');
+        }
+
+        // Torch/Flash (ayuda en baja luz)
+        if (capabilities.torch) {
+          constraints.advanced.push({ torch: false }); // Desactivado por defecto
+          console.log('💡 Torch disponible (desactivado)');
         }
 
         // Aplicar constraints
         if (constraints.advanced.length > 0) {
           await videoTrack.applyConstraints(constraints);
-          console.log('✅ Constraints aplicados correctamente');
+          console.log('✅ Constraints continuos aplicados');
         }
 
-        // Configurar resolución óptima
+        // Mostrar settings finales
         const settings = videoTrack.getSettings();
-        console.log('📐 Configuración de video:', settings);
+        console.log('📐 Configuración final:', JSON.stringify(settings, null, 2));
+
+        // ESTRATEGIA 3: Re-aplicar focus cada 3 segundos (workaround para cámaras problemáticas)
+        setInterval(async () => {
+          try {
+            if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+              await videoTrack.applyConstraints({
+                advanced: [{ focusMode: 'continuous' }]
+              });
+              console.log('🔄 Focus refrescado');
+            }
+          } catch (e) {
+            // Ignorar errores silenciosamente
+          }
+        }, 3000);
 
       } catch (error) {
         console.error('❌ Error configurando autofocus:', error);
@@ -817,8 +870,12 @@
       });
 
       // Evento: Target perdido
+      let lostCount = 0;
+      let redetectionTimer = null;
+
       targetEntity.addEventListener('targetLost', () => {
-        console.log('⚠️ Imagen perdida, buscando...');
+        lostCount++;
+        console.log(`⚠️ Imagen perdida (${lostCount} veces), buscando...`);
 
         if (!isGyroMode) {
           statusDot.classList.remove('found');
@@ -826,7 +883,37 @@
 
           instructionCard.classList.remove('hidden');
           instructionCard.querySelector('.icon').textContent = '🔍';
-          instructionCard.querySelector('p').innerHTML = '<strong>Imagen perdida</strong><br>Vuelve a apuntar a la imagen<br><small>💡 Mantén distancia estable</small>';
+          instructionCard.querySelector('p').innerHTML = '<strong>Imagen perdida</strong><br>Vuelve a apuntar a la imagen<br><small>💡 Mantén distancia 20-40cm</small>';
+
+          // Sistema de re-detección automático
+          if (redetectionTimer) clearTimeout(redetectionTimer);
+
+          redetectionTimer = setTimeout(() => {
+            console.log('🔄 Sistema de re-detección: reiniciando búsqueda...');
+
+            // Resetear contador de detección
+            targetDetected = false;
+            detectionAttempts = 0;
+
+            // Forzar refresh de video stream para ayudar con re-detección
+            const video = document.querySelector('video');
+            if (video && video.srcObject) {
+              const stream = video.srcObject;
+              const videoTrack = stream.getVideoTracks()[0];
+
+              // Re-aplicar constraints para "despertar" la detección
+              videoTrack.applyConstraints({
+                advanced: [{ focusMode: 'continuous' }]
+              }).then(() => {
+                console.log('✅ Video stream refrescado para re-detección');
+              }).catch(e => {
+                console.warn('⚠️ No se pudo refrescar stream:', e);
+              });
+            }
+
+            instructionCard.querySelector('p').innerHTML = '<strong>Sistema reiniciado</strong><br>Apunta nuevamente a la imagen<br><small>🔄 Búsqueda activa</small>';
+
+          }, 2000); // Esperar 2 segundos antes de reiniciar
         }
       });
     }
