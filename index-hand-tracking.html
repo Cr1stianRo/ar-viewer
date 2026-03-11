@@ -250,7 +250,7 @@
               colorManagement: true;
               sortObjects: true;"
     vr-mode-ui="enabled: false"
-    style="display: none; background: transparent;"
+    style="opacity: 0; pointer-events: none; background: transparent; transition: opacity 0.3s;"
   >
     <!-- Modelo 3D (inicialmente oculto) -->
     <a-entity id="hand-model" visible="false">
@@ -312,47 +312,28 @@
 
         document.getElementById('permission-screen').style.display = 'none';
         document.getElementById('video-container').style.display = 'block';
-        document.getElementById('ar-scene').style.display = 'block';
+        document.getElementById('ar-scene').style.opacity = '1';
         document.getElementById('ui-overlay').style.display = 'block';
 
         const videoElement = document.getElementById('input-video');
         const canvasElement = document.getElementById('output-canvas');
         const canvasCtx = canvasElement.getContext('2d');
 
-        // Esperar a que A-Frame cargue
+        // Setup de listeners del modelo 3D
         const scene = document.querySelector('a-scene');
+        const handModel = document.getElementById('hand-model');
+        const modelEntity = handModel?.querySelector('[gltf-model]');
 
-        const initScene = () => {
-          console.log('📦 A-Frame scene cargada');
-
-          // Forzar resize del canvas
-          setTimeout(() => {
-            if (scene.canvas && scene.renderer) {
-              const width = window.innerWidth;
-              const height = window.innerHeight;
-              scene.renderer.setSize(width, height, false);
-              console.log('📐 Canvas resized:', width, 'x', height);
-            }
-          }, 100);
-
-          const handModel = document.getElementById('hand-model');
-          const modelEntity = handModel?.querySelector('[gltf-model]');
-
-          if (modelEntity) {
-            modelEntity.addEventListener('model-loaded', () => {
-              console.log('✅ Modelo 3D cargado correctamente');
-            });
-            modelEntity.addEventListener('model-error', (e) => {
-              console.error('❌ Error cargando modelo:', e.detail);
-            });
-          }
-        };
-
-        if (scene.hasLoaded) {
-          initScene();
-        } else {
-          scene.addEventListener('loaded', initScene);
+        if (modelEntity) {
+          modelEntity.addEventListener('model-loaded', () => {
+            console.log('✅ Modelo 3D cargado correctamente');
+          });
+          modelEntity.addEventListener('model-error', (e) => {
+            console.error('❌ Error cargando modelo:', e.detail);
+          });
         }
+
+        console.log('📦 A-Frame scene lista');
 
       // Configurar MediaPipe Hands
       hands = new Hands({
@@ -401,7 +382,7 @@
         // Volver a mostrar pantalla de inicio
         document.getElementById('permission-screen').style.display = 'flex';
         document.getElementById('video-container').style.display = 'none';
-        document.getElementById('ar-scene').style.display = 'none';
+        document.getElementById('ar-scene').style.opacity = '0';
         document.getElementById('ui-overlay').style.display = 'none';
       }
     }
