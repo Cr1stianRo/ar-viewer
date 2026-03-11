@@ -8,6 +8,90 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
+  <!-- ========== COMPONENTE DE GIROSCOPIO (DEBE IR ANTES DE USAR) ========== -->
+  <script>
+    // Registrar componente ANTES de que se use
+    if (typeof AFRAME !== 'undefined') {
+      AFRAME.registerComponent('device-orientation-camera', {
+        schema: {
+          enabled: { type: 'boolean', default: false }
+        },
+
+        init: function() {
+          this.alpha = 0;
+          this.beta = 0;
+          this.gamma = 0;
+          this.listening = false;
+          this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
+          console.log('🔧 Componente device-orientation-camera iniciado');
+        },
+
+        update: function() {
+          if (this.data.enabled && !this.listening) {
+            this.requestPermission();
+          } else if (!this.data.enabled && this.listening) {
+            window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+            this.listening = false;
+            console.log('⏸️ Giroscopio desactivado');
+          }
+        },
+
+        requestPermission: function() {
+          const self = this;
+
+          // iOS 13+ requiere permiso explícito
+          if (typeof DeviceOrientationEvent !== 'undefined' &&
+              typeof DeviceOrientationEvent.requestPermission === 'function') {
+            console.log('📱 Solicitando permiso de orientación (iOS)...');
+            DeviceOrientationEvent.requestPermission()
+              .then(response => {
+                if (response === 'granted') {
+                  console.log('✅ Permiso de orientación concedido');
+                  self.startListening();
+                } else {
+                  console.warn('❌ Permiso de orientación denegado');
+                  alert('Necesitas permitir acceso al giroscopio para este modo');
+                }
+              })
+              .catch(error => {
+                console.error('Error solicitando permiso:', error);
+              });
+          } else {
+            // Android y otros navegadores
+            console.log('📱 Activando orientación (Android/otros)...');
+            this.startListening();
+          }
+        },
+
+        startListening: function() {
+          window.addEventListener('deviceorientation', this.onDeviceOrientation);
+          this.listening = true;
+          console.log('✅ Escuchando eventos de orientación del dispositivo');
+        },
+
+        onDeviceOrientation: function(event) {
+          if (!this.data.enabled) return;
+
+          this.alpha = event.alpha || 0; // Z axis (0-360)
+          this.beta = event.beta || 0;   // X axis (-180 to 180)
+          this.gamma = event.gamma || 0; // Y axis (-90 to 90)
+        },
+
+        tick: function() {
+          if (!this.data.enabled || !this.listening) return;
+
+          const camera = this.el.object3D;
+          const degToRad = Math.PI / 180;
+
+          // Aplicar rotación del dispositivo a la cámara
+          camera.rotation.x = this.beta * degToRad;
+          camera.rotation.y = this.alpha * degToRad;
+          camera.rotation.z = -this.gamma * degToRad;
+        }
+      });
+    }
+  </script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
 
@@ -174,7 +258,7 @@
     <strong style="color:#00ff88">Paso 2:</strong> El modelo se ancla en el espacio<br>
     <strong style="color:#0088ff">Paso 3:</strong> Usa el giroscopio para verlo desde todos los ángulos</p>
     <button id="start-btn" onclick="startAR()">INICIAR</button>
-    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere giroscopio activo</p>
+    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere cámara y giroscopio</p>
   </div>
 
   <!-- AR Scene -->
@@ -201,7 +285,7 @@
       smoothTolerance="0.01"
       smoothThreshold="2"
     >
-      <!-- Modelo temporal en marcador (se clonará a mundo) -->
+      <!-- Modelo temporal en marcador -->
       <a-entity id="temp-model" visible="false">
         <a-box
           color="#000000"
@@ -233,7 +317,7 @@
       </a-entity>
     </a-marker>
 
-    <!-- Modelo anclado en el mundo (invisible hasta inicializar) -->
+    <!-- Modelo anclado en el mundo -->
     <a-entity id="world-model" visible="false" position="0 0 -3">
       <a-box
         color="#000000"
@@ -264,7 +348,7 @@
       <a-light type="point" intensity="1.0" position="0 1 0"></a-light>
     </a-entity>
 
-    <!-- Cámara con giroscopio -->
+    <!-- Cámara -->
     <a-camera
       id="ar-camera"
       device-orientation-camera="enabled: false"
@@ -289,90 +373,14 @@
     </div>
   </div>
 
+  <!-- ========== LÓGICA PRINCIPAL ========== -->
   <script>
     let isGyroMode = false;
     let markerDetectedOnce = false;
-    let gyroControls = null;
-
-    // AFRAME Component para DeviceOrientation
-    AFRAME.registerComponent('device-orientation-camera', {
-      schema: {
-        enabled: { type: 'boolean', default: false }
-      },
-
-      init: function() {
-        this.alpha = 0;
-        this.beta = 0;
-        this.gamma = 0;
-
-        this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
-      },
-
-      update: function() {
-        if (this.data.enabled && !this.listening) {
-          this.requestPermission();
-        } else if (!this.data.enabled && this.listening) {
-          window.removeEventListener('deviceorientation', this.onDeviceOrientation);
-          this.listening = false;
-        }
-      },
-
-      requestPermission: function() {
-        const self = this;
-
-        // iOS 13+ requiere permiso explícito
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-          console.log('📱 Solicitando permiso de orientación (iOS)...');
-          DeviceOrientationEvent.requestPermission()
-            .then(response => {
-              if (response === 'granted') {
-                console.log('✅ Permiso concedido');
-                self.startListening();
-              } else {
-                console.warn('❌ Permiso denegado');
-                alert('Necesitas permitir acceso al giroscopio para usar este modo');
-              }
-            })
-            .catch(error => {
-              console.error('Error solicitando permiso:', error);
-            });
-        } else {
-          // Android y otros navegadores
-          console.log('📱 Activando orientación (Android/otros)...');
-          this.startListening();
-        }
-      },
-
-      startListening: function() {
-        window.addEventListener('deviceorientation', this.onDeviceOrientation);
-        this.listening = true;
-        console.log('✅ Escuchando eventos de orientación');
-      },
-
-      onDeviceOrientation: function(event) {
-        if (!this.data.enabled) return;
-
-        this.alpha = event.alpha || 0; // Z axis (0-360)
-        this.beta = event.beta || 0;   // X axis (-180 to 180)
-        this.gamma = event.gamma || 0; // Y axis (-90 to 90)
-      },
-
-      tick: function() {
-        if (!this.data.enabled || !this.listening) return;
-
-        const camera = this.el.object3D;
-        const degToRad = Math.PI / 180;
-
-        // Aplicar rotación del dispositivo a la cámara
-        camera.rotation.x = this.beta * degToRad;
-        camera.rotation.y = this.alpha * degToRad;
-        camera.rotation.z = -this.gamma * degToRad;
-      }
-    });
 
     async function startAR() {
       try {
-        console.log('🚀 Solicitando permiso de cámara...');
+        console.log('🚀 PASO 1: Solicitando permiso de cámara...');
 
         // Solicitar cámara explícitamente
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -385,21 +393,45 @@
 
         console.log('✅ Permiso de cámara concedido');
 
-        // Detener el stream temporal (AR.js lo reiniciará)
+        // Detener stream temporal (AR.js lo reiniciará)
         stream.getTracks().forEach(track => track.stop());
 
-        // Mostrar escena AR
+        console.log('🚀 PASO 2: Mostrando escena AR...');
+
+        // Ocultar pantalla de permisos
         document.getElementById('permission-screen').style.display = 'none';
-        document.getElementById('ar-scene').style.display = 'block';
+
+        // Mostrar escena AR y UI
+        const arScene = document.getElementById('ar-scene');
+        arScene.style.display = 'block';
         document.getElementById('ui-overlay').style.display = 'block';
 
-        console.log('📦 AR.js iniciando...');
+        console.log('🚀 PASO 3: Esperando a que A-Frame se cargue...');
+
+        // ESPERAR a que la escena esté completamente cargada
+        if (arScene.hasLoaded) {
+          console.log('✅ A-Frame ya estaba cargado');
+          setupMarkerListeners();
+        } else {
+          arScene.addEventListener('loaded', function() {
+            console.log('✅ A-Frame cargado correctamente');
+            setupMarkerListeners();
+          });
+        }
 
       } catch (error) {
         console.error('❌ Error al solicitar cámara:', error);
-        alert('Error: No se pudo acceder a la cámara. Asegúrate de permitir el acceso.');
-        return;
+        alert('Error: No se pudo acceder a la cámara.\n\n' + error.message);
+
+        // Volver a mostrar pantalla de permisos
+        document.getElementById('permission-screen').style.display = 'flex';
+        document.getElementById('ar-scene').style.display = 'none';
+        document.getElementById('ui-overlay').style.display = 'none';
       }
+    }
+
+    function setupMarkerListeners() {
+      console.log('🚀 PASO 4: Registrando event listeners del marcador...');
 
       const marker = document.getElementById('marker-init');
       const tempModel = document.getElementById('temp-model');
@@ -409,10 +441,17 @@
       const statusText = document.getElementById('status-text');
       const instructionCard = document.getElementById('instruction-card');
 
+      if (!marker) {
+        console.error('❌ No se encontró el marcador en el DOM');
+        return;
+      }
+
+      console.log('✅ Marcador encontrado, esperando detección...');
+
       // Evento: Marcador detectado
       marker.addEventListener('markerFound', () => {
         if (!markerDetectedOnce) {
-          console.log('🎯 MARCADOR DETECTADO - Inicializando posición');
+          console.log('🎯 ¡MARCADOR #3 DETECTADO!');
 
           // Mostrar modelo temporal
           tempModel.setAttribute('visible', true);
@@ -420,7 +459,7 @@
           statusDot.classList.add('found');
           statusText.textContent = 'MARCADOR DETECTADO';
 
-          // Esperar 2 segundos para que el usuario vea el modelo
+          // Esperar 2 segundos antes de activar giroscopio
           setTimeout(() => {
             if (!isGyroMode) {
               activateGyroMode();
@@ -430,18 +469,18 @@
       });
 
       function activateGyroMode() {
-        console.log('🔄 ACTIVANDO MODO GIROSCOPIO');
+        console.log('🔄 ACTIVANDO MODO GIROSCOPIO...');
 
         isGyroMode = true;
         markerDetectedOnce = true;
 
-        // Copiar posición del marcador al modelo del mundo
+        // Copiar posición del marcador al mundo
         const markerWorldPos = new THREE.Vector3();
         marker.object3D.getWorldPosition(markerWorldPos);
 
-        // Ajustar posición del modelo en el mundo
+        // Posicionar modelo del mundo
         worldModel.object3D.position.copy(markerWorldPos);
-        worldModel.object3D.position.y += 0.5; // Elevar un poco
+        worldModel.object3D.position.y += 0.5;
 
         // Mostrar modelo del mundo
         worldModel.setAttribute('visible', true);
@@ -449,7 +488,7 @@
         // Ocultar modelo temporal
         tempModel.setAttribute('visible', false);
 
-        // ACTIVAR DEVICE ORIENTATION en la cámara
+        // ACTIVAR GIROSCOPIO
         camera.setAttribute('device-orientation-camera', 'enabled: true');
 
         // Actualizar UI
@@ -457,11 +496,10 @@
         statusDot.classList.add('gyro');
         statusText.textContent = 'MODO GIROSCOPIO ACTIVO';
 
-        // Actualizar instrucciones
         instructionCard.querySelector('.icon').textContent = '🔄';
         instructionCard.querySelector('p').innerHTML = '<strong>Mueve tu móvil</strong><br>para ver el modelo desde todos los ángulos<br><small style="color:#0088ff;">Ya no necesitas el marcador</small>';
 
-        console.log('✅ Modo giroscopio activado. Mueve el móvil para ver el modelo.');
+        console.log('✅ Modo giroscopio activado correctamente');
       }
     }
   </script>
