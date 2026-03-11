@@ -258,8 +258,8 @@
       <!-- Modelo GLB de pato (Duck del repositorio oficial glTF) -->
       <a-entity
         gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
-        scale="0.15 0.15 0.15"
-        position="0 -0.2 0"
+        scale="0.4 0.4 0.4"
+        position="0 -0.3 0"
         rotation="0 0 0"
       ></a-entity>
 
@@ -290,13 +290,51 @@
   </div>
 
   <script>
+    // ========== FILTRO DE KALMAN 1D SIMPLE ==========
+    class KalmanFilter {
+      constructor(processNoise = 0.01, measurementNoise = 0.25, estimationError = 1, initialValue = 0) {
+        this.processNoise = processNoise;        // Q - ruido del proceso
+        this.measurementNoise = measurementNoise; // R - ruido de medición
+        this.estimationError = estimationError;   // P - error de estimación
+        this.estimate = initialValue;             // Estado actual
+      }
+
+      filter(measurement) {
+        // Predicción
+        this.estimationError += this.processNoise;
+
+        // Actualización (corrección)
+        const kalmanGain = this.estimationError / (this.estimationError + this.measurementNoise);
+        this.estimate += kalmanGain * (measurement - this.estimate);
+        this.estimationError = (1 - kalmanGain) * this.estimationError;
+
+        return this.estimate;
+      }
+    }
+
     // Variables globales
     let hands;
     let camera;
     let handDetected = false;
     let lastHandPosition = { x: 0, y: 0, z: 0 };
     let lastHandRotation = { x: 0, y: 0, z: 0 };
-    let smoothingFactor = 0.3; // 0.1 = muy suave, 0.5 = más reactivo
+    let smoothingFactor = 0.15; // 🔧 REDUCIDO para más suavizado (antes 0.3)
+
+    // Buffer de última posición conocida
+    let lastValidPosition = { x: 0, y: 0, z: 0 };
+    let lastValidRotation = { x: 0, y: 0, z: 0 };
+    let framesWithoutDetection = 0;
+    const MAX_FRAMES_WITHOUT_DETECTION = 45; // 1.5 segundos a 30fps
+
+    // Filtros de Kalman para posición (X, Y, Z)
+    const kalmanPosX = new KalmanFilter(0.008, 0.1, 1, 0);
+    const kalmanPosY = new KalmanFilter(0.008, 0.1, 1, 0);
+    const kalmanPosZ = new KalmanFilter(0.008, 0.1, 1, 0);
+
+    // Filtros de Kalman para rotación (X, Y, Z)
+    const kalmanRotX = new KalmanFilter(0.01, 0.15, 1, 0);
+    const kalmanRotY = new KalmanFilter(0.01, 0.15, 1, 0);
+    const kalmanRotZ = new KalmanFilter(0.01, 0.15, 1, 0);
 
     async function startHandTracking() {
       try {
@@ -335,10 +373,10 @@
       });
 
       hands.setOptions({
-        maxNumHands: 1, // Solo detectar 1 mano
-        modelComplexity: 1, // 0=lite, 1=full (mejor precisión)
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.6
+        maxNumHands: 1,              // Solo detectar 1 mano
+        modelComplexity: 1,          // 1=full (mejor precisión, 0=lite para más FPS)
+        minDetectionConfidence: 0.5, // 🔧 REDUCIDO para detectar más rápido
+        minTrackingConfidence: 0.5   // 🔧 REDUCIDO para tracking más persistente
       });
 
       console.log('🤖 MediaPipe Hands configurado');
@@ -398,10 +436,14 @@
         const targetY = -(palmCenter.y - 0.5) * 3;
         const targetZ = -palmCenter.z * 2 - 3;
 
-        // Suavizado de posición
-        lastHandPosition.x += (targetX - lastHandPosition.x) * smoothingFactor;
-        lastHandPosition.y += (targetY - lastHandPosition.y) * smoothingFactor;
-        lastHandPosition.z += (targetZ - lastHandPosition.z) * smoothingFactor;
+        // 🔧 FILTRO DE KALMAN + SUAVIZADO para posición
+        const filteredX = kalmanPosX.filter(targetX);
+        const filteredY = kalmanPosY.filter(targetY);
+        const filteredZ = kalmanPosZ.filter(targetZ);
+
+        lastHandPosition.x += (filteredX - lastHandPosition.x) * smoothingFactor;
+        lastHandPosition.y += (filteredY - lastHandPosition.y) * smoothingFactor;
+        lastHandPosition.z += (filteredZ - lastHandPosition.z) * smoothingFactor;
 
         // ========== ROTACIÓN (orientación de la mano) ==========
         // Landmarks clave para calcular orientación:
@@ -446,10 +488,25 @@
         // Rotación en Z (roll - inclinación lateral)
         const targetRotZ = Math.atan2(palmWidthY, palmWidthX) * (180 / Math.PI) - 90;
 
-        // Suavizado de rotación
-        lastHandRotation.x += (targetRotX - lastHandRotation.x) * smoothingFactor;
-        lastHandRotation.y += (targetRotY - lastHandRotation.y) * smoothingFactor;
-        lastHandRotation.z += (targetRotZ - lastHandRotation.z) * smoothingFactor;
+        // 🔧 FILTRO DE KALMAN + SUAVIZADO para rotación
+        const filteredRotX = kalmanRotX.filter(targetRotX);
+        const filteredRotY = kalmanRotY.filter(targetRotY);
+        const filteredRotZ = kalmanRotZ.filter(targetRotZ);
+
+        lastHandRotation.x += (filteredRotX - lastHandRotation.x) * smoothingFactor;
+        lastHandRotation.y += (filteredRotY - lastHandRotation.y) * smoothingFactor;
+        lastHandRotation.z += (filteredRotZ - lastHandRotation.z) * smoothingFactor;
+
+        // 🔧 GUARDAR ÚLTIMA POSICIÓN VÁLIDA (buffer)
+        lastValidPosition.x = lastHandPosition.x;
+        lastValidPosition.y = lastHandPosition.y;
+        lastValidPosition.z = lastHandPosition.z;
+        lastValidRotation.x = lastHandRotation.x;
+        lastValidRotation.y = lastHandRotation.y;
+        lastValidRotation.z = lastHandRotation.z;
+
+        // Resetear contador de frames sin detección
+        framesWithoutDetection = 0;
 
         // ========== APLICAR TRANSFORMACIONES ==========
         handModel.setAttribute('position', {
@@ -464,15 +521,6 @@
           z: lastHandRotation.z
         });
 
-        // Log continuo cada 60 frames (~1 segundo)
-        if (Math.random() < 0.017) {
-          console.log('📍 Posición actual:',
-            'X:', lastHandPosition.x.toFixed(2),
-            'Y:', lastHandPosition.y.toFixed(2),
-            'Z:', lastHandPosition.z.toFixed(2)
-          );
-        }
-
         // Mostrar modelo si estaba oculto
         if (!handDetected) {
           handModel.setAttribute('visible', true);
@@ -482,17 +530,32 @@
         }
 
       } else {
-        // No hay mano detectada
-        if (handDetected) {
-          // Ocultar modelo después de 1 segundo sin detección
-          setTimeout(() => {
-            if (!handDetected) {
-              handModel.setAttribute('visible', false);
-            }
-          }, 1000);
+        // 🔧 NO HAY MANO DETECTADA - BUFFER DE PERSISTENCIA
+        framesWithoutDetection++;
 
-          handDetected = false;
-          updateStatus(false);
+        if (handDetected && framesWithoutDetection <= MAX_FRAMES_WITHOUT_DETECTION) {
+          // Mantener modelo visible usando última posición conocida
+          // Interpolar suavemente para "congelar" sin saltos bruscos
+          lastHandPosition.x += (lastValidPosition.x - lastHandPosition.x) * 0.05;
+          lastHandPosition.y += (lastValidPosition.y - lastHandPosition.y) * 0.05;
+          lastHandPosition.z += (lastValidPosition.z - lastHandPosition.z) * 0.05;
+
+          lastHandRotation.x += (lastValidRotation.x - lastHandRotation.x) * 0.05;
+          lastHandRotation.y += (lastValidRotation.y - lastHandRotation.y) * 0.05;
+          lastHandRotation.z += (lastValidRotation.z - lastHandRotation.z) * 0.05;
+
+          handModel.setAttribute('position', lastHandPosition);
+          handModel.setAttribute('rotation', lastHandRotation);
+
+          console.log('⏸️ Tracking perdido temporalmente - frame', framesWithoutDetection);
+        } else if (framesWithoutDetection > MAX_FRAMES_WITHOUT_DETECTION) {
+          // Pérdida definitiva - ocultar modelo
+          if (handDetected) {
+            handModel.setAttribute('visible', false);
+            handDetected = false;
+            updateStatus(false);
+            console.log('❌ Tracking perdido definitivamente');
+          }
         }
       }
     }
