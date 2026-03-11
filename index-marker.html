@@ -307,10 +307,12 @@
             detectionMode: mono_and_matrix;
             matrixCodeType: 3x3_HAMMING63;
             trackingMethod: best;
-            maxDetectionRate: 60;
+            maxDetectionRate: 90;
             canvasWidth: 640;
             canvasHeight: 480;
-            minConfidence: 0.6;
+            minConfidence: 0.3;
+            labelingMode: 1;
+            thresholdMode: 1;
             cameraParametersUrl: https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/data/camera_para.dat;
             facingMode: environment;"
       renderer="logarithmicDepthBuffer: true;
@@ -328,16 +330,16 @@
         <!-- Modelo cargado directamente en la entidad -->
       </a-assets>
 
-      <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking optimizado -->
+      <!-- Marcador de matriz #3 (HAMMING 3x3) - Tracking ULTRA optimizado para impresión baja calidad -->
       <a-marker
         type="barcode"
         value="3"
         id="marker-3"
         emitevents="true"
         smooth="true"
-        smoothCount="20"
-        smoothTolerance="0.005"
-        smoothThreshold="4"
+        smoothCount="30"
+        smoothTolerance="0.002"
+        smoothThreshold="6"
       >
 
         <!-- ========== TARJETA DE PRESENTACIÓN: GALLINA & HUEVOS ========== -->
@@ -626,7 +628,7 @@
         marker.addEventListener('markerLost', () => {
           console.log('⏳ Marcador perdido temporalmente - esperando 2 seg...');
 
-          // No ocultar inmediatamente, esperar 2 segundos por si vuelve a detectar
+          // No ocultar inmediatamente, esperar 3.5 segundos por si vuelve a detectar
           markerLostTimeout = setTimeout(() => {
             if (!isMarkerVisible) {
               console.log('❌ Marcador perdido definitivamente');
@@ -634,7 +636,7 @@
               document.getElementById('status-text').textContent = 'BUSCANDO MARCADOR #3';
               document.getElementById('instruction-card').classList.remove('hidden');
             }
-          }, 2000); // Mantener visible 2 segundos
+          }, 3500); // Mantener visible 3.5 segundos (compensar movimiento)
 
           isMarkerVisible = false;
         });
