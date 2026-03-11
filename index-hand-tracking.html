@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AR Viewer — Hand Tracking</title>
+  <title>AR Viewer — Merge Cube Hand Tracking</title>
 
   <!-- A-Frame -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
@@ -228,10 +228,10 @@
 
   <!-- Permission Screen -->
   <div id="permission-screen">
-    <div class="big-icon">✋</div>
-    <h1>HAND TRACKING AR</h1>
-    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara. El modelo 3D flotará sobre tu palma y <strong style="color:#00ff88">rotará cuando muevas tu mano</strong>.</p>
-    <button id="start-btn" onclick="startHandTracking()">INICIAR CÁMARA</button>
+    <div class="big-icon">🧊</div>
+    <h1>MERGE CUBE AR</h1>
+    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara. Un <strong style="color:#00ff88">cubo holográfico</strong> aparecerá con un cerebro humano 3D dentro. Rota tu mano para ver todos los ángulos.</p>
+    <button id="start-btn" onclick="startHandTracking()">INICIAR EXPERIENCIA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
 
@@ -252,21 +252,66 @@
     vr-mode-ui="enabled: false"
     style="opacity: 0; pointer-events: none; background: transparent; transition: opacity 0.3s;"
   >
-    <!-- Modelo 3D (inicialmente oculto) -->
+    <!-- ========== MERGE CUBE SIMULATION ========== -->
     <a-entity id="hand-model" visible="false">
 
-      <!-- Modelo GLB de pato (Duck del repositorio oficial glTF) -->
-      <!-- Escala dinámica controlada por JavaScript según distancia de la mano -->
-      <a-entity
-        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb"
-        position="0 -0.3 0"
-        rotation="0 0 0"
-      ></a-entity>
+      <!-- CUBO NEGRO HOLOGRÁFICO (simula Merge Cube) -->
+      <a-box
+        id="merge-cube"
+        color="#000000"
+        scale="0.8 0.8 0.8"
+        position="0 0 0"
+        material="opacity: 0.25; transparent: true; side: double; shader: flat;"
+        wireframe="true"
+        wireframe-linewidth="2"
+      >
+        <!-- Bordes luminosos del cubo (efecto holográfico) -->
+        <a-box
+          color="#00ff88"
+          scale="1.02 1.02 1.02"
+          material="opacity: 0.15; transparent: true; shader: flat; side: double;"
+        ></a-box>
+      </a-box>
 
-      <!-- Iluminación -->
-      <a-light type="ambient" color="#FFFFFF" intensity="1.2"></a-light>
-      <a-light type="directional" color="#FFFFFF" intensity="1.5" position="2 3 1"></a-light>
-      <a-light type="point" color="#FFFFFF" intensity="1.0" position="0 0 0"></a-light>
+      <!-- MODELO 3D DETALLADO - CEREBRO HUMANO ANATÓMICO -->
+      <a-entity
+        id="brain-model"
+        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BrainStem/glTF-Binary/BrainStem.glb"
+        position="0 0 0"
+        scale="3.5 3.5 3.5"
+        rotation="0 0 0"
+      >
+        <!-- Animación de rotación lenta continua (efecto showcase) -->
+        <a-animation
+          attribute="rotation"
+          from="0 0 0"
+          to="0 360 0"
+          dur="20000"
+          repeat="indefinite"
+          easing="linear"
+        ></a-animation>
+      </a-entity>
+
+      <!-- ILUMINACIÓN MEJORADA para modelo detallado -->
+      <a-light type="ambient" color="#FFFFFF" intensity="0.8"></a-light>
+      <a-light type="directional" color="#FFFFFF" intensity="1.8" position="3 4 2"></a-light>
+      <a-light type="directional" color="#88CCFF" intensity="0.6" position="-2 2 -1"></a-light>
+      <a-light type="point" color="#FFFFFF" intensity="1.2" position="0 1 1"></a-light>
+      <a-light type="point" color="#FF88AA" intensity="0.4" position="0 -1 -1"></a-light>
+
+      <!-- Partículas flotantes (efecto holográfico) -->
+      <a-entity id="particles">
+        <a-sphere color="#00ff88" opacity="0.4" scale="0.02 0.02 0.02" position="0.4 0.3 0.2">
+          <a-animation attribute="position" from="0.4 0.3 0.2" to="0.4 0.6 0.2" dur="3000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+        <a-sphere color="#00ff88" opacity="0.4" scale="0.015 0.015 0.015" position="-0.3 -0.2 0.3">
+          <a-animation attribute="position" from="-0.3 -0.2 0.3" to="-0.3 0.1 0.3" dur="3500" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+        <a-sphere color="#0088ff" opacity="0.3" scale="0.018 0.018 0.018" position="0.2 -0.3 -0.2">
+          <a-animation attribute="position" from="0.2 -0.3 -0.2" to="0.2 0 -0.2" dur="4000" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+        </a-sphere>
+      </a-entity>
+
     </a-entity>
 
     <!-- Cámara A-Frame -->
@@ -276,7 +321,7 @@
   <!-- UI Overlay -->
   <div id="ui-overlay" style="display:none;">
     <div id="topbar">
-      <span id="logo">✋ Hand Tracking AR</span>
+      <span id="logo">🧊 Merge Cube AR</span>
       <div style="display:flex; align-items:center;">
         <span id="status-dot"></span>
         <span id="status-text">BUSCANDO MANO</span>
@@ -284,8 +329,8 @@
     </div>
 
     <div id="instruction-card">
-      <span class="icon">✋</span>
-      <p>Muestra tu <strong>mano abierta</strong><br>frente a la cámara (15-50cm)<br><small style="color:#00ff88;">Rota tu mano para rotar el modelo</small></p>
+      <span class="icon">🧊</span>
+      <p><strong>Mano abierta</strong> frente a cámara<br>(15-50cm)<br><small style="color:#00ff88;">Acerca/aleja para cambiar tamaño • Rota para ver todos los ángulos</small></p>
     </div>
   </div>
 
@@ -318,7 +363,7 @@
     let handDetected = false;
     let lastHandPosition = { x: 0, y: 0, z: 0 };
     let lastHandRotation = { x: 0, y: 0, z: 0 };
-    let lastHandScale = 0.4; // 🆕 Escala dinámica del modelo
+    let lastHandScale = 0.6; // 🆕 Escala dinámica del modelo (Merge Cube size)
 
     // 🔧 SMOOTHING DIFERENCIADO para efecto "pegado"
     let positionSmoothingFactor = 0.65; // ALTO = posición casi instantánea (pegado a mano)
@@ -328,14 +373,14 @@
     // Buffer de última posición conocida
     let lastValidPosition = { x: 0, y: 0, z: 0 };
     let lastValidRotation = { x: 0, y: 0, z: 0 };
-    let lastValidScale = 0.4; // 🆕 Buffer de última escala válida
+    let lastValidScale = 0.6; // 🆕 Buffer de última escala válida
     let framesWithoutDetection = 0;
     const MAX_FRAMES_WITHOUT_DETECTION = 45; // 1.5 segundos a 30fps
 
-    // 🆕 Parámetros de escala dinámica
-    const MIN_SCALE = 0.15;  // Escala mínima (mano lejos)
-    const MAX_SCALE = 0.8;   // Escala máxima (mano cerca)
-    const SCALE_RANGE_Z = 0.3; // Rango de Z para escalar (ajustable)
+    // 🆕 Parámetros de escala dinámica (MERGE CUBE EFFECT)
+    const MIN_SCALE = 0.25;  // Escala mínima (mano lejos) - más grande que antes
+    const MAX_SCALE = 1.2;   // Escala máxima (mano cerca) - mucho más dramático
+    const SCALE_RANGE_Z = 0.3; // Rango de Z para escalar
 
     // 🔧 Filtros de Kalman AJUSTADOS para efecto "pegado"
     // Posición: processNoise bajo, measurementNoise bajo = más responsive
@@ -349,7 +394,7 @@
     const kalmanRotZ = new KalmanFilter(0.008, 0.12, 1, 0);
 
     // Escala: balance entre responsive y suave
-    const kalmanScale = new KalmanFilter(0.008, 0.1, 1, 0.4);
+    const kalmanScale = new KalmanFilter(0.008, 0.1, 1, 0.6);
 
     async function startHandTracking() {
       try {
