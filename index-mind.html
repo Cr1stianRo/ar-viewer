@@ -205,34 +205,6 @@
       letter-spacing: 1px;
     }
 
-    #detection-counter {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(255, 0, 0, 0.9);
-      color: white;
-      font-size: 48px;
-      font-weight: 700;
-      padding: 40px 60px;
-      border-radius: 20px;
-      border: 4px solid white;
-      z-index: 200;
-      display: none;
-      pointer-events: none;
-      text-align: center;
-    }
-
-    #detection-counter.show {
-      display: block;
-      animation: pulse-scale 1s ease-in-out infinite;
-    }
-
-    @keyframes pulse-scale {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); }
-      50% { transform: translate(-50%, -50%) scale(1.1); }
-    }
-
     #instruction-card {
       position: absolute;
       bottom: 40px;
@@ -373,12 +345,6 @@
   <!-- Botón de giroscopio (flotante sobre la escena) -->
   <button id="gyro-btn" class="show" onclick="toggleGyro()">ACTIVAR GIROSCOPIO</button>
 
-  <!-- Contador de detección VISIBLE -->
-  <div id="detection-counter">
-    <div>✅ DETECTADO</div>
-    <div style="font-size: 24px; margin-top: 10px;">Buscando modelo...</div>
-  </div>
-
   <!-- AR Scene -->
   <a-scene
     id="ar-scene"
@@ -387,10 +353,10 @@
                   uiLoading: no;
                   uiError: no;
                   uiScanning: no;
-                  filterMinCF: 0.001;
-                  filterBeta: 100;
-                  warmupTolerance: 3;
-                  missTolerance: 15;
+                  filterMinCF: 0.0001;
+                  filterBeta: 1000;
+                  warmupTolerance: 2;
+                  missTolerance: 100;
                   maxTrack: 1;"
     embedded
     color-space="sRGB"
@@ -402,25 +368,6 @@
 
     <!-- Target Entity -->
     <a-entity id="target-entity" mindar-image-target="targetIndex: 0" visible="true">
-
-      <!-- CUBO DE DEBUG GRANDE Y MUY VISIBLE -->
-      <a-box
-        id="debug-cube"
-        color="#ff0000"
-        position="0 0 0"
-        scale="1 1 1"
-        material="opacity: 0.8; transparent: true; shader: flat;"
-        visible="true"
-      ></a-box>
-
-      <!-- Cubo verde adicional para verificar -->
-      <a-box
-        color="#00ff00"
-        position="0 1.5 0"
-        scale="0.5 0.5 0.5"
-        material="opacity: 0.8; transparent: true; shader: flat;"
-        visible="true"
-      ></a-box>
 
       <!-- ========== GALLINA 3D PROCEDURAL (ESCALADA 2X) ========== -->
       <a-entity scale="2 2 2" visible="true">
@@ -913,47 +860,26 @@
       // Evento: Target detectado
       targetEntity.addEventListener('targetFound', () => {
         if (!targetDetected) {
-          console.log('🎯 ¡IMAGEN DETECTADA!');
+          console.log('🎯 ¡IMAGEN DETECTADA! - Tracking inercial activo');
           console.log(`📊 Detectada después de ${detectionAttempts} segundos`);
+          console.log('🔄 missTolerance: 100 frames - NO necesita re-leer constantemente');
           targetDetected = true;
           clearInterval(detectionMonitor);
 
           statusDot.classList.add('found');
-          statusText.textContent = 'IMAGEN DETECTADA';
-
-          // MOSTRAR CONTADOR GRANDE Y VISIBLE
-          const detectionCounter = document.getElementById('detection-counter');
-          detectionCounter.classList.add('show');
-          detectionCounter.innerHTML = `
-            <div>✅ DETECTADO</div>
-            <div style="font-size: 24px; margin-top: 10px;">¿Ves el cubo rojo?</div>
-          `;
+          statusText.textContent = 'TRACKING ACTIVO';
 
           instructionCard.querySelector('.icon').textContent = '✅';
-          instructionCard.querySelector('p').innerHTML = '<strong>¡Imagen detectada!</strong><br>Deberías ver cubo rojo + verde<br><small>✅ Detección en ' + detectionAttempts + 's</small>';
+          instructionCard.querySelector('p').innerHTML = '<strong>¡Tracking activo!</strong><br>Ya no necesita leer la imagen constantemente<br><small>✨ Tracking inercial basado en features</small>';
 
           // Forzar visibility del target entity
           targetEntity.setAttribute('visible', true);
-          console.log('🔧 Target entity visibility forzada');
+          console.log('🔧 Target entity visible - modelo renderizando');
 
-          // Verificar que los cubos estén visibles
-          setTimeout(() => {
-            const debugCube = document.getElementById('debug-cube');
-            if (debugCube) {
-              debugCube.setAttribute('visible', true);
-              console.log('🔧 Debug cube visibility forzada');
-            }
-          }, 100);
-
-          // Ocultar contador después de 5 segundos
-          setTimeout(() => {
-            detectionCounter.classList.remove('show');
-          }, 5000);
-
-          // Ocultar instrucciones después de 4 segundos
+          // Ocultar instrucciones después de 3 segundos
           setTimeout(() => {
             instructionCard.classList.add('hidden');
-          }, 4000);
+          }, 3000);
         }
       });
 
