@@ -241,6 +241,13 @@
       color: #00ff88;
     }
 
+    #instruction-card small {
+      font-size: 10px;
+      color: #888;
+      display: block;
+      margin-top: 8px;
+    }
+
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
@@ -346,10 +353,11 @@
                   uiLoading: no;
                   uiError: no;
                   uiScanning: no;
-                  filterMinCF: 0.0001;
-                  filterBeta: 10;
-                  warmupTolerance: 5;
-                  missTolerance: 5;"
+                  filterMinCF: 0.001;
+                  filterBeta: 100;
+                  warmupTolerance: 2;
+                  missTolerance: 10;
+                  maxTrack: 1;"
     embedded
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights"
@@ -555,7 +563,8 @@
 
     <div id="instruction-card">
       <span class="icon">🖼️</span>
-      <p><strong>Apunta a la imagen objetivo</strong><br>El modelo aparecerá automáticamente</p>
+      <p><strong>Apunta a la imagen objetivo</strong><br>Mantén distancia de 20-40cm, buena luz<br>
+      <small>💡 Tip: Usa imagen con muchos detalles y colores variados, evita superficies planas o brillantes</small></p>
     </div>
   </div>
 
@@ -590,25 +599,41 @@
           if (mainBackCamera) {
             console.log('✅ Usando cámara principal:', mainBackCamera.label || mainBackCamera.deviceId);
 
-            // Forzar uso de la cámara principal
+            // Forzar uso de la cámara principal con autofocus
             if (typeof constraints.video === 'object') {
               constraints.video.deviceId = { exact: mainBackCamera.deviceId };
               delete constraints.video.facingMode; // Remover facingMode para usar deviceId
             } else {
               constraints.video = {
-                deviceId: { exact: mainBackCamera.deviceId },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                deviceId: { exact: mainBackCamera.deviceId }
               };
             }
+
+            // Agregar constraints de calidad y autofocus
+            constraints.video.width = { ideal: 1280, min: 640 };
+            constraints.video.height = { ideal: 720, min: 480 };
+            constraints.video.frameRate = { ideal: 30, min: 15 };
+
+            // Advanced constraints para autofocus continuo
+            constraints.video.advanced = [
+              { focusMode: 'continuous' },
+              { exposureMode: 'continuous' },
+              { whiteBalanceMode: 'continuous' }
+            ];
           } else {
             console.warn('⚠️ No se encontró cámara principal, usando configuración por defecto');
 
-            // Fallback: especificar facingMode environment con resolución
+            // Fallback: especificar facingMode environment con resolución y autofocus
             if (typeof constraints.video === 'object') {
               constraints.video.facingMode = { exact: 'environment' };
-              constraints.video.width = { ideal: 1280 };
-              constraints.video.height = { ideal: 720 };
+              constraints.video.width = { ideal: 1280, min: 640 };
+              constraints.video.height = { ideal: 720, min: 480 };
+              constraints.video.frameRate = { ideal: 30, min: 15 };
+              constraints.video.advanced = [
+                { focusMode: 'continuous' },
+                { exposureMode: 'continuous' },
+                { whiteBalanceMode: 'continuous' }
+              ];
             }
           }
         }
@@ -670,6 +695,68 @@
       }
     }
 
+    async function enableContinuousFocus() {
+      try {
+        console.log('🎥 Configurando autofocus continuo...');
+
+        // Esperar un momento para que MindAR inicialice la cámara
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Obtener el video stream de MindAR
+        const video = document.querySelector('video');
+        if (!video || !video.srcObject) {
+          console.warn('⚠️ No se encontró video stream');
+          return;
+        }
+
+        const stream = video.srcObject;
+        const videoTrack = stream.getVideoTracks()[0];
+
+        if (!videoTrack) {
+          console.warn('⚠️ No se encontró video track');
+          return;
+        }
+
+        // Obtener capacidades de la cámara
+        const capabilities = videoTrack.getCapabilities();
+        console.log('📹 Capacidades de cámara:', capabilities);
+
+        // Aplicar constraints de focus
+        const constraints = { advanced: [] };
+
+        // Autofocus continuo (crítico para evitar blur)
+        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+          constraints.advanced.push({ focusMode: 'continuous' });
+          console.log('✅ Autofocus continuo habilitado');
+        }
+
+        // Exposición automática
+        if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) {
+          constraints.advanced.push({ exposureMode: 'continuous' });
+          console.log('✅ Exposición automática habilitada');
+        }
+
+        // White balance automático
+        if (capabilities.whiteBalanceMode && capabilities.whiteBalanceMode.includes('continuous')) {
+          constraints.advanced.push({ whiteBalanceMode: 'continuous' });
+          console.log('✅ Balance de blancos automático habilitado');
+        }
+
+        // Aplicar constraints
+        if (constraints.advanced.length > 0) {
+          await videoTrack.applyConstraints(constraints);
+          console.log('✅ Constraints aplicados correctamente');
+        }
+
+        // Configurar resolución óptima
+        const settings = videoTrack.getSettings();
+        console.log('📐 Configuración de video:', settings);
+
+      } catch (error) {
+        console.error('❌ Error configurando autofocus:', error);
+      }
+    }
+
     function initMindAR() {
       console.log('🚀 PASO 3: Iniciando sistema AR...');
 
@@ -684,22 +771,48 @@
       arSystem.start();
       console.log('✅ Sistema MindAR iniciado');
 
+      // Habilitar autofocus continuo después de iniciar
+      enableContinuousFocus();
+
+      // Variables para tracking de intentos
+      let detectionAttempts = 0;
+      let lastAttemptTime = Date.now();
+
+      // Monitorear intentos de detección
+      const detectionMonitor = setInterval(() => {
+        if (!targetDetected) {
+          detectionAttempts++;
+
+          if (detectionAttempts === 5) {
+            instructionCard.querySelector('p').innerHTML = '<strong>Buscando imagen...</strong><br>Asegúrate de tener buena luz<br><small>💡 Acerca/aleja lentamente (20-40cm)</small>';
+          } else if (detectionAttempts === 10) {
+            instructionCard.querySelector('p').innerHTML = '<strong>Detección lenta</strong><br>¿Tu imagen tiene suficientes detalles?<br><small>⚠️ Evita superficies planas/brillantes</small>';
+          } else if (detectionAttempts === 15) {
+            instructionCard.querySelector('p').innerHTML = '<strong>Problemas de detección</strong><br>Prueba con otra imagen más detallada<br><small>❌ Imágenes simples no funcionan bien</small>';
+          }
+        } else {
+          clearInterval(detectionMonitor);
+        }
+      }, 1000);
+
       // Evento: Target detectado
       targetEntity.addEventListener('targetFound', () => {
         if (!targetDetected) {
           console.log('🎯 ¡IMAGEN DETECTADA!');
+          console.log(`📊 Detectada después de ${detectionAttempts} segundos`);
           targetDetected = true;
+          clearInterval(detectionMonitor);
 
           statusDot.classList.add('found');
           statusText.textContent = 'IMAGEN DETECTADA';
 
           instructionCard.querySelector('.icon').textContent = '✅';
-          instructionCard.querySelector('p').innerHTML = '<strong>¡Imagen detectada!</strong><br>Modelo visible y tracking activo';
+          instructionCard.querySelector('p').innerHTML = '<strong>¡Imagen detectada!</strong><br>Modelo visible y tracking activo<br><small>✅ Detección exitosa en ' + detectionAttempts + 's</small>';
 
-          // Ocultar instrucciones después de 3 segundos
+          // Ocultar instrucciones después de 4 segundos
           setTimeout(() => {
             instructionCard.classList.add('hidden');
-          }, 3000);
+          }, 4000);
         }
       });
 
@@ -710,6 +823,10 @@
         if (!isGyroMode) {
           statusDot.classList.remove('found');
           statusText.textContent = 'BUSCANDO IMAGEN';
+
+          instructionCard.classList.remove('hidden');
+          instructionCard.querySelector('.icon').textContent = '🔍';
+          instructionCard.querySelector('p').innerHTML = '<strong>Imagen perdida</strong><br>Vuelve a apuntar a la imagen<br><small>💡 Mantén distancia estable</small>';
         }
       });
     }
