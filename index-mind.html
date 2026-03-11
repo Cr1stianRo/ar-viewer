@@ -126,10 +126,31 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       font-family: 'Space Mono', monospace;
       background: #0a0a0a;
-      overflow: hidden;
+    }
+
+    /* Fix para canvas de MindAR - ocupar toda la pantalla */
+    #ar-scene {
+      width: 100% !important;
+      height: 100% !important;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #ar-scene canvas {
+      width: 100% !important;
+      height: 100% !important;
     }
 
     #ui-overlay {
@@ -279,8 +300,15 @@
     #gyro-btn {
       border-color: #0088ff;
       color: #0088ff;
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 101;
+      pointer-events: all;
       display: none;
-      margin-top: 15px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
 
     #gyro-btn:hover {
@@ -290,6 +318,7 @@
 
     #gyro-btn.show {
       display: inline-block;
+      opacity: 1;
     }
   </style>
 </head>
@@ -303,9 +332,11 @@
     Apunta a la imagen objetivo y el modelo aparecerá<br>
     <small style="color:#666;">No necesitas barcode, usa imágenes naturales</small></p>
     <button id="start-btn" onclick="startAR()">INICIAR</button>
-    <button id="gyro-btn" class="show" onclick="toggleGyro()">ACTIVAR GIROSCOPIO</button>
-    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere cámara trasera</p>
+    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere cámara trasera principal</p>
   </div>
+
+  <!-- Botón de giroscopio (flotante sobre la escena) -->
+  <button id="gyro-btn" class="show" onclick="toggleGyro()">ACTIVAR GIROSCOPIO</button>
 
   <!-- AR Scene -->
   <a-scene
@@ -533,6 +564,61 @@
     let isGyroMode = false;
     let targetDetected = false;
 
+    // ========== FORZAR CÁMARA PRINCIPAL (NO WIDE) ==========
+    (function() {
+      const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+      navigator.mediaDevices.getUserMedia = async function(constraints) {
+        console.log('📹 Solicitando cámara con constraints:', constraints);
+
+        if (constraints && constraints.video) {
+          // Obtener lista de cámaras disponibles
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+          console.log('📹 Cámaras disponibles:', videoDevices.map(d => d.label || d.deviceId));
+
+          // Buscar cámara trasera principal (NO wide)
+          const mainBackCamera = videoDevices.find(device => {
+            const label = (device.label || '').toLowerCase();
+            return label.includes('back') &&
+                   !label.includes('wide') &&
+                   !label.includes('ultra') &&
+                   !label.includes('0.5');
+          });
+
+          if (mainBackCamera) {
+            console.log('✅ Usando cámara principal:', mainBackCamera.label || mainBackCamera.deviceId);
+
+            // Forzar uso de la cámara principal
+            if (typeof constraints.video === 'object') {
+              constraints.video.deviceId = { exact: mainBackCamera.deviceId };
+              delete constraints.video.facingMode; // Remover facingMode para usar deviceId
+            } else {
+              constraints.video = {
+                deviceId: { exact: mainBackCamera.deviceId },
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              };
+            }
+          } else {
+            console.warn('⚠️ No se encontró cámara principal, usando configuración por defecto');
+
+            // Fallback: especificar facingMode environment con resolución
+            if (typeof constraints.video === 'object') {
+              constraints.video.facingMode = { exact: 'environment' };
+              constraints.video.width = { ideal: 1280 };
+              constraints.video.height = { ideal: 720 };
+            }
+          }
+        }
+
+        return originalGetUserMedia(constraints);
+      };
+
+      console.log('✅ Interceptor de cámara instalado');
+    })();
+
     async function startAR() {
       try {
         console.log('🚀 PASO 1: Iniciando MindAR...');
@@ -540,6 +626,7 @@
         const permissionScreen = document.getElementById('permission-screen');
         const arScene = document.getElementById('ar-scene');
         const uiOverlay = document.getElementById('ui-overlay');
+        const gyroBtn = document.getElementById('gyro-btn');
 
         // Ocultar pantalla de permisos
         permissionScreen.style.display = 'none';
@@ -556,10 +643,18 @@
         if (sceneEl.hasLoaded) {
           console.log('✅ MindAR ya estaba cargado');
           initMindAR();
+          // Mostrar botón de gyro después de cargar
+          setTimeout(() => {
+            gyroBtn.classList.add('show');
+          }, 1000);
         } else {
           sceneEl.addEventListener('loaded', function() {
             console.log('✅ MindAR cargado correctamente');
             initMindAR();
+            // Mostrar botón de gyro después de cargar
+            setTimeout(() => {
+              gyroBtn.classList.add('show');
+            }, 1000);
           });
         }
 
@@ -571,6 +666,7 @@
         document.getElementById('permission-screen').style.display = 'flex';
         document.getElementById('ar-scene').style.display = 'none';
         document.getElementById('ui-overlay').style.display = 'none';
+        document.getElementById('gyro-btn').classList.remove('show');
       }
     }
 
