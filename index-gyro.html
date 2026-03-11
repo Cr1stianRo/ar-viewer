@@ -267,6 +267,7 @@
     <!-- Cámara con giroscopio -->
     <a-camera
       id="ar-camera"
+      device-orientation-camera="enabled: false"
       look-controls="enabled: false"
       wasd-controls="enabled: false"
     ></a-camera>
@@ -291,6 +292,83 @@
   <script>
     let isGyroMode = false;
     let markerDetectedOnce = false;
+    let gyroControls = null;
+
+    // AFRAME Component para DeviceOrientation
+    AFRAME.registerComponent('device-orientation-camera', {
+      schema: {
+        enabled: { type: 'boolean', default: false }
+      },
+
+      init: function() {
+        this.alpha = 0;
+        this.beta = 0;
+        this.gamma = 0;
+
+        this.onDeviceOrientation = this.onDeviceOrientation.bind(this);
+      },
+
+      update: function() {
+        if (this.data.enabled && !this.listening) {
+          this.requestPermission();
+        } else if (!this.data.enabled && this.listening) {
+          window.removeEventListener('deviceorientation', this.onDeviceOrientation);
+          this.listening = false;
+        }
+      },
+
+      requestPermission: function() {
+        const self = this;
+
+        // iOS 13+ requiere permiso explícito
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          console.log('📱 Solicitando permiso de orientación (iOS)...');
+          DeviceOrientationEvent.requestPermission()
+            .then(response => {
+              if (response === 'granted') {
+                console.log('✅ Permiso concedido');
+                self.startListening();
+              } else {
+                console.warn('❌ Permiso denegado');
+                alert('Necesitas permitir acceso al giroscopio para usar este modo');
+              }
+            })
+            .catch(error => {
+              console.error('Error solicitando permiso:', error);
+            });
+        } else {
+          // Android y otros navegadores
+          console.log('📱 Activando orientación (Android/otros)...');
+          this.startListening();
+        }
+      },
+
+      startListening: function() {
+        window.addEventListener('deviceorientation', this.onDeviceOrientation);
+        this.listening = true;
+        console.log('✅ Escuchando eventos de orientación');
+      },
+
+      onDeviceOrientation: function(event) {
+        if (!this.data.enabled) return;
+
+        this.alpha = event.alpha || 0; // Z axis (0-360)
+        this.beta = event.beta || 0;   // X axis (-180 to 180)
+        this.gamma = event.gamma || 0; // Y axis (-90 to 90)
+      },
+
+      tick: function() {
+        if (!this.data.enabled || !this.listening) return;
+
+        const camera = this.el.object3D;
+        const degToRad = Math.PI / 180;
+
+        // Aplicar rotación del dispositivo a la cámara
+        camera.rotation.x = this.beta * degToRad;
+        camera.rotation.y = this.alpha * degToRad;
+        camera.rotation.z = -this.gamma * degToRad;
+      }
+    });
 
     function startAR() {
       document.getElementById('permission-screen').style.display = 'none';
@@ -345,8 +423,8 @@
         // Ocultar modelo temporal
         tempModel.setAttribute('visible', false);
 
-        // Activar look-controls con giroscopio
-        camera.setAttribute('look-controls', 'enabled: true; magicWindowTrackingEnabled: true; touchEnabled: false');
+        // ACTIVAR DEVICE ORIENTATION en la cámara
+        camera.setAttribute('device-orientation-camera', 'enabled: true');
 
         // Actualizar UI
         statusDot.classList.remove('found');
@@ -357,7 +435,7 @@
         instructionCard.querySelector('.icon').textContent = '🔄';
         instructionCard.querySelector('p').innerHTML = '<strong>Mueve tu móvil</strong><br>para ver el modelo desde todos los ángulos<br><small style="color:#0088ff;">Ya no necesitas el marcador</small>';
 
-        console.log('✅ Modo giroscopio activado. Puedes quitar el marcador.');
+        console.log('✅ Modo giroscopio activado. Mueve el móvil para ver el modelo.');
       }
     }
   </script>
