@@ -370,10 +370,36 @@
       }
     });
 
-    function startAR() {
-      document.getElementById('permission-screen').style.display = 'none';
-      document.getElementById('ar-scene').style.display = 'block';
-      document.getElementById('ui-overlay').style.display = 'block';
+    async function startAR() {
+      try {
+        console.log('🚀 Solicitando permiso de cámara...');
+
+        // Solicitar cámara explícitamente
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        });
+
+        console.log('✅ Permiso de cámara concedido');
+
+        // Detener el stream temporal (AR.js lo reiniciará)
+        stream.getTracks().forEach(track => track.stop());
+
+        // Mostrar escena AR
+        document.getElementById('permission-screen').style.display = 'none';
+        document.getElementById('ar-scene').style.display = 'block';
+        document.getElementById('ui-overlay').style.display = 'block';
+
+        console.log('📦 AR.js iniciando...');
+
+      } catch (error) {
+        console.error('❌ Error al solicitar cámara:', error);
+        alert('Error: No se pudo acceder a la cámara. Asegúrate de permitir el acceso.');
+        return;
+      }
 
       const marker = document.getElementById('marker-init');
       const tempModel = document.getElementById('temp-model');
