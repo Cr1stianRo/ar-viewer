@@ -369,182 +369,30 @@
     <!-- Target Entity -->
     <a-entity id="target-entity" mindar-image-target="targetIndex: 0" visible="true">
 
-      <!-- ========== GALLINA 3D PROCEDURAL (ESCALADA 2X) ========== -->
-      <a-entity scale="2 2 2" visible="true">
-
-      <!-- Plataforma base circular -->
-      <a-cylinder
-        color="#8B4513"
-        height="0.05"
-        radius="1.2"
-        position="0 -0.5 0"
-        material="roughness: 0.8; metalness: 0.2;"
-      ></a-cylinder>
-
-      <!-- Pasto decorativo -->
-      <a-ring
-        color="#2d5016"
-        radius-inner="0.9"
-        radius-outer="1.15"
-        position="0 -0.47 0"
-        rotation="-90 0 0"
-        material="opacity: 0.8; side: double;"
-      ></a-ring>
-
-      <!-- Cuerpo de la gallina (esfera blanca) -->
-      <a-sphere
-        color="#ffffff"
-        radius="0.35"
-        position="0 0.1 0"
-        material="roughness: 0.3;"
-      ></a-sphere>
-
-      <!-- Cabeza de la gallina -->
-      <a-sphere
-        color="#ffffff"
-        radius="0.22"
-        position="0 0.5 0.15"
-        material="roughness: 0.3;"
-      ></a-sphere>
-
-      <!-- Pico superior -->
-      <a-cone
-        color="#FFA500"
-        height="0.12"
-        radius-bottom="0.08"
-        radius-top="0.02"
-        position="0 0.5 0.35"
-        rotation="90 0 0"
-      ></a-cone>
-
-      <!-- Pico inferior -->
-      <a-cone
-        color="#FF8C00"
-        height="0.08"
-        radius-bottom="0.06"
-        radius-top="0.01"
-        position="0 0.45 0.35"
-        rotation="90 0 0"
-      ></a-cone>
-
-      <!-- Cresta (3 esferas rojas) -->
-      <a-sphere color="#ff0000" radius="0.08" position="-0.08 0.65 0.12"></a-sphere>
-      <a-sphere color="#ff0000" radius="0.09" position="0 0.68 0.1"></a-sphere>
-      <a-sphere color="#ff0000" radius="0.08" position="0.08 0.65 0.12"></a-sphere>
-
-      <!-- Barbilla -->
-      <a-sphere color="#ff0000" radius="0.06" position="0 0.38 0.3"></a-sphere>
-      <a-sphere color="#ff0000" radius="0.05" position="0 0.32 0.32"></a-sphere>
-
-      <!-- Ojos -->
-      <a-sphere color="#000000" radius="0.04" position="0.1 0.55 0.28"></a-sphere>
-      <a-sphere color="#000000" radius="0.04" position="-0.1 0.55 0.28"></a-sphere>
-      <a-sphere color="#ffffff" radius="0.02" position="0.11 0.56 0.3"></a-sphere>
-      <a-sphere color="#ffffff" radius="0.02" position="-0.09 0.56 0.3"></a-sphere>
-
-      <!-- Alas (2 esferas achatadas) -->
-      <a-sphere
-        color="#f0f0f0"
-        radius="0.25"
-        scale="0.8 1 0.4"
-        position="0.35 0.1 0"
-        material="roughness: 0.4;"
-      ></a-sphere>
-      <a-sphere
-        color="#f0f0f0"
-        radius="0.25"
-        scale="0.8 1 0.4"
-        position="-0.35 0.1 0"
-        material="roughness: 0.4;"
-      ></a-sphere>
-
-      <!-- Patas (4 cilindros naranjas) -->
-      <a-cylinder color="#FFA500" height="0.3" radius="0.04" position="0.12 -0.35 0.1"></a-cylinder>
-      <a-cylinder color="#FFA500" height="0.3" radius="0.04" position="-0.12 -0.35 0.1"></a-cylinder>
-      <a-box color="#FFA500" width="0.12" height="0.02" depth="0.08" position="0.12 -0.52 0.12"></a-box>
-      <a-box color="#FFA500" width="0.12" height="0.02" depth="0.08" position="-0.12 -0.52 0.12"></a-box>
-
-      <!-- Cola (conos blancos) -->
-      <a-cone
-        color="#ffffff"
-        height="0.3"
-        radius-bottom="0.12"
-        radius-top="0.02"
-        position="0 0.25 -0.3"
-        rotation="45 0 0"
-      ></a-cone>
-      <a-cone
-        color="#f5f5f5"
-        height="0.25"
-        radius-bottom="0.1"
-        radius-top="0.01"
-        position="0.08 0.28 -0.32"
-        rotation="50 15 0"
-      ></a-cone>
-      <a-cone
-        color="#f5f5f5"
-        height="0.25"
-        radius-bottom="0.1"
-        radius-top="0.01"
-        position="-0.08 0.28 -0.32"
-        rotation="50 -15 0"
-      ></a-cone>
-
-      <!-- ========== 6 HUEVOS ALREDEDOR ========== -->
-      <a-sphere color="#FFF8DC" radius="0.12" position="0.6 -0.38 0" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="0.6 -0.38 0" to="0.6 -0.32 0" dur="2000" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-      <a-sphere color="#FFF8DC" radius="0.12" position="-0.6 -0.38 0" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="-0.6 -0.38 0" to="-0.6 -0.33 0" dur="2200" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-      <a-sphere color="#FFF8DC" radius="0.12" position="0.3 -0.38 0.5" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="0.3 -0.38 0.5" to="0.3 -0.34 0.5" dur="1800" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-      <a-sphere color="#FFF8DC" radius="0.12" position="-0.3 -0.38 0.5" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="-0.3 -0.38 0.5" to="-0.3 -0.35 0.5" dur="2100" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-      <a-sphere color="#FFF8DC" radius="0.12" position="0.3 -0.38 -0.5" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="0.3 -0.38 -0.5" to="0.3 -0.33 -0.5" dur="1900" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-      <a-sphere color="#FFF8DC" radius="0.12" position="-0.3 -0.38 -0.5" scale="0.9 1.1 0.9">
-        <a-animation attribute="position" from="-0.3 -0.38 -0.5" to="-0.3 -0.34 -0.5" dur="2300" direction="alternate" repeat="indefinite"></a-animation>
-      </a-sphere>
-
-      <!-- ========== GRANOS DE MAÍZ (decoración) ========== -->
-      <a-sphere color="#FFD700" radius="0.035" position="0.8 -0.45 0.3"></a-sphere>
-      <a-sphere color="#FFD700" radius="0.04" position="0.75 -0.45 0.4"></a-sphere>
-      <a-sphere color="#FFD700" radius="0.035" position="0.85 -0.45 0.35"></a-sphere>
-      <a-sphere color="#FFD700" radius="0.038" position="-0.8 -0.45 0.3"></a-sphere>
-      <a-sphere color="#FFD700" radius="0.036" position="-0.75 -0.45 0.4"></a-sphere>
-
-      <!-- ========== PLUMITAS FLOTANTES ========== -->
-      <a-cone color="#ffffff" height="0.08" radius-bottom="0.03" radius-top="0.005" position="0.5 0.8 0.2" rotation="20 30 10" material="opacity: 0.7; transparent: true;">
-        <a-animation attribute="position" from="0.5 0.8 0.2" to="0.45 0.6 0.15" dur="3000" direction="alternate" repeat="indefinite"></a-animation>
-        <a-animation attribute="rotation" from="20 30 10" to="40 60 -10" dur="3000" direction="alternate" repeat="indefinite"></a-animation>
-      </a-cone>
-      <a-cone color="#f5f5f5" height="0.07" radius-bottom="0.025" radius-top="0.005" position="-0.4 0.9 0.3" rotation="-15 45 20" material="opacity: 0.6; transparent: true;">
-        <a-animation attribute="position" from="-0.4 0.9 0.3" to="-0.35 0.7 0.25" dur="3500" direction="alternate" repeat="indefinite"></a-animation>
-        <a-animation attribute="rotation" from="-15 45 20" to="10 80 -15" dur="3500" direction="alternate" repeat="indefinite"></a-animation>
-      </a-cone>
-
-      <!-- Animación de rotación de toda la gallina -->
-      <a-animation
-        attribute="rotation"
-        from="0 0 0"
-        to="0 360 0"
-        dur="15000"
-        repeat="indefinite"
-        easing="linear"
-      ></a-animation>
-
-      </a-entity><!-- Fin contenedor escalado -->
+      <!-- CUBO SIMPLE - SIN LAG -->
+      <a-box
+        color="#00ff88"
+        position="0 0.5 0"
+        scale="1 1 1"
+        material="metalness: 0.3; roughness: 0.7;"
+        rotation="0 45 0"
+      >
+        <!-- Rotación suave simple -->
+        <a-animation
+          attribute="rotation"
+          from="0 0 0"
+          to="0 360 0"
+          dur="8000"
+          repeat="indefinite"
+          easing="linear"
+        ></a-animation>
+      </a-box>
 
     </a-entity><!-- Fin target-entity -->
 
-    <!-- Iluminación global (fuera del target) -->
-    <a-light type="ambient" intensity="1.5"></a-light>
-    <a-light type="directional" intensity="2.5" position="2 4 2"></a-light>
-    <a-light type="point" intensity="2.0" position="0 3 0" color="#ffffff"></a-light>
+    <!-- Iluminación simple (optimizada) -->
+    <a-light type="ambient" intensity="0.8"></a-light>
+    <a-light type="directional" intensity="1.0" position="1 2 1"></a-light>
 
     <!-- Cámara -->
     <a-camera
