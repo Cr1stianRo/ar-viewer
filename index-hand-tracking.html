@@ -319,7 +319,11 @@
     let lastHandPosition = { x: 0, y: 0, z: 0 };
     let lastHandRotation = { x: 0, y: 0, z: 0 };
     let lastHandScale = 0.4; // 🆕 Escala dinámica del modelo
-    let smoothingFactor = 0.15; // 🔧 REDUCIDO para más suavizado (antes 0.3)
+
+    // 🔧 SMOOTHING DIFERENCIADO para efecto "pegado"
+    let positionSmoothingFactor = 0.65; // ALTO = posición casi instantánea (pegado a mano)
+    let rotationSmoothingFactor = 0.25; // BAJO = rotación suave
+    let scaleSmoothingFactor = 0.35;    // MEDIO = escala fluida
 
     // Buffer de última posición conocida
     let lastValidPosition = { x: 0, y: 0, z: 0 };
@@ -333,18 +337,19 @@
     const MAX_SCALE = 0.8;   // Escala máxima (mano cerca)
     const SCALE_RANGE_Z = 0.3; // Rango de Z para escalar (ajustable)
 
-    // Filtros de Kalman para posición (X, Y, Z)
-    const kalmanPosX = new KalmanFilter(0.008, 0.1, 1, 0);
-    const kalmanPosY = new KalmanFilter(0.008, 0.1, 1, 0);
-    const kalmanPosZ = new KalmanFilter(0.008, 0.1, 1, 0);
+    // 🔧 Filtros de Kalman AJUSTADOS para efecto "pegado"
+    // Posición: processNoise bajo, measurementNoise bajo = más responsive
+    const kalmanPosX = new KalmanFilter(0.005, 0.05, 1, 0);
+    const kalmanPosY = new KalmanFilter(0.005, 0.05, 1, 0);
+    const kalmanPosZ = new KalmanFilter(0.005, 0.05, 1, 0);
 
-    // Filtros de Kalman para rotación (X, Y, Z)
-    const kalmanRotX = new KalmanFilter(0.01, 0.15, 1, 0);
-    const kalmanRotY = new KalmanFilter(0.01, 0.15, 1, 0);
-    const kalmanRotZ = new KalmanFilter(0.01, 0.15, 1, 0);
+    // Rotación: más suavizado para evitar giros bruscos
+    const kalmanRotX = new KalmanFilter(0.008, 0.12, 1, 0);
+    const kalmanRotY = new KalmanFilter(0.008, 0.12, 1, 0);
+    const kalmanRotZ = new KalmanFilter(0.008, 0.12, 1, 0);
 
-    // 🆕 Filtro de Kalman para escala
-    const kalmanScale = new KalmanFilter(0.01, 0.12, 1, 0.4);
+    // Escala: balance entre responsive y suave
+    const kalmanScale = new KalmanFilter(0.008, 0.1, 1, 0.4);
 
     async function startHandTracking() {
       try {
@@ -446,14 +451,14 @@
         const targetY = -(palmCenter.y - 0.5) * 3;
         const targetZ = -palmCenter.z * 2 - 3;
 
-        // 🔧 FILTRO DE KALMAN + SUAVIZADO para posición
+        // 🔧 FILTRO DE KALMAN + SUAVIZADO ALTO para posición (efecto pegado)
         const filteredX = kalmanPosX.filter(targetX);
         const filteredY = kalmanPosY.filter(targetY);
         const filteredZ = kalmanPosZ.filter(targetZ);
 
-        lastHandPosition.x += (filteredX - lastHandPosition.x) * smoothingFactor;
-        lastHandPosition.y += (filteredY - lastHandPosition.y) * smoothingFactor;
-        lastHandPosition.z += (filteredZ - lastHandPosition.z) * smoothingFactor;
+        lastHandPosition.x += (filteredX - lastHandPosition.x) * positionSmoothingFactor;
+        lastHandPosition.y += (filteredY - lastHandPosition.y) * positionSmoothingFactor;
+        lastHandPosition.z += (filteredZ - lastHandPosition.z) * positionSmoothingFactor;
 
         // ========== ROTACIÓN (orientación de la mano) ==========
         // Landmarks clave para calcular orientación:
@@ -498,14 +503,14 @@
         // Rotación en Z (roll - inclinación lateral)
         const targetRotZ = Math.atan2(palmWidthY, palmWidthX) * (180 / Math.PI) - 90;
 
-        // 🔧 FILTRO DE KALMAN + SUAVIZADO para rotación
+        // 🔧 FILTRO DE KALMAN + SUAVIZADO BAJO para rotación (giros fluidos)
         const filteredRotX = kalmanRotX.filter(targetRotX);
         const filteredRotY = kalmanRotY.filter(targetRotY);
         const filteredRotZ = kalmanRotZ.filter(targetRotZ);
 
-        lastHandRotation.x += (filteredRotX - lastHandRotation.x) * smoothingFactor;
-        lastHandRotation.y += (filteredRotY - lastHandRotation.y) * smoothingFactor;
-        lastHandRotation.z += (filteredRotZ - lastHandRotation.z) * smoothingFactor;
+        lastHandRotation.x += (filteredRotX - lastHandRotation.x) * rotationSmoothingFactor;
+        lastHandRotation.y += (filteredRotY - lastHandRotation.y) * rotationSmoothingFactor;
+        lastHandRotation.z += (filteredRotZ - lastHandRotation.z) * rotationSmoothingFactor;
 
         // 🆕 ========== ESCALA DINÁMICA (según distancia Z de la mano) ==========
         // MediaPipe Z: valores más negativos = más cerca de la cámara
@@ -518,9 +523,9 @@
         const depthFactor = (normalizedDepth + 0.2) / 0.3; // Normalizar a [0, 1]
         const targetScale = MAX_SCALE - (depthFactor * (MAX_SCALE - MIN_SCALE));
 
-        // Aplicar filtro de Kalman + smoothing a la escala
+        // Aplicar filtro de Kalman + smoothing medio a la escala
         const filteredScale = kalmanScale.filter(targetScale);
-        lastHandScale += (filteredScale - lastHandScale) * (smoothingFactor * 0.8);
+        lastHandScale += (filteredScale - lastHandScale) * scaleSmoothingFactor;
 
         // 🔧 GUARDAR ÚLTIMA POSICIÓN VÁLIDA (buffer)
         lastValidPosition.x = lastHandPosition.x;
