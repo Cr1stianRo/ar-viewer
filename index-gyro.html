@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AR Viewer — Gyro Mode</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: #0a0a0a;
+      overflow: hidden;
+    }
+
+    #ui-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #topbar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+
+    #logo {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #00ff88;
+      text-transform: uppercase;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      box-shadow: 0 0 8px #ff4444;
+      animation: pulse 1.5s ease-in-out infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    #status-dot.found {
+      background: #00ff88;
+      box-shadow: 0 0 8px #00ff88;
+      animation: none;
+    }
+    #status-dot.gyro {
+      background: #0088ff;
+      box-shadow: 0 0 8px #0088ff;
+      animation: none;
+    }
+
+    #status-text {
+      font-size: 11px;
+      color: #aaa;
+      letter-spacing: 1px;
+    }
+
+    #instruction-card {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 12px;
+      padding: 18px 28px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.5s ease;
+      min-width: 260px;
+    }
+
+    #instruction-card.hidden {
+      opacity: 0;
+    }
+
+    #instruction-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    #instruction-card p {
+      font-size: 12px;
+      color: #ccc;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+    }
+
+    #instruction-card strong {
+      color: #00ff88;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #permission-screen {
+      position: fixed;
+      inset: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      gap: 20px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    #permission-screen .big-icon { font-size: 64px; }
+
+    #permission-screen h1 {
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 2px;
+      font-weight: 700;
+    }
+
+    #permission-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.7;
+      max-width: 320px;
+    }
+
+    #start-btn {
+      pointer-events: all;
+      background: transparent;
+      border: 1px solid #00ff88;
+      color: #00ff88;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      padding: 14px 32px;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-radius: 6px;
+      transition: all 0.2s;
+      margin-top: 10px;
+    }
+
+    #start-btn:hover {
+      background: #00ff88;
+      color: #0a0a0a;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Permission Screen -->
+  <div id="permission-screen">
+    <div class="big-icon">🎯</div>
+    <h1>AR GYRO MODE</h1>
+    <p><strong style="color:#00ff88">Paso 1:</strong> Apunta al marcador #3<br>
+    <strong style="color:#00ff88">Paso 2:</strong> El modelo se ancla en el espacio<br>
+    <strong style="color:#0088ff">Paso 3:</strong> Usa el giroscopio para verlo desde todos los ángulos</p>
+    <button id="start-btn" onclick="startAR()">INICIAR</button>
+    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere giroscopio activo</p>
+  </div>
+
+  <!-- AR Scene -->
+  <a-scene
+    id="ar-scene"
+    embedded
+    arjs="sourceType: webcam;
+          debugUIEnabled: false;
+          detectionMode: mono_and_matrix;
+          matrixCodeType: 3x3_HAMMING63;
+          trackingMethod: best;"
+    vr-mode-ui="enabled: false"
+    style="display:none;"
+  >
+
+    <!-- Marcador (solo para inicialización) -->
+    <a-marker
+      type="barcode"
+      value="3"
+      id="marker-init"
+      emitevents="true"
+      smooth="true"
+      smoothCount="5"
+      smoothTolerance="0.01"
+      smoothThreshold="2"
+    >
+      <!-- Modelo temporal en marcador (se clonará a mundo) -->
+      <a-entity id="temp-model" visible="false">
+        <a-box
+          color="#000000"
+          scale="0.6 0.6 0.6"
+          material="opacity: 0.3; transparent: true;"
+        >
+          <a-box color="#00ff88" scale="1.02 1.02 1.02" material="opacity: 0.2; transparent: true;"></a-box>
+        </a-box>
+
+        <a-entity
+          gltf-model="modelos/Chicken.glb"
+          scale="4 4 4"
+          position="0 0 0"
+          rotation="0 0 0"
+        >
+          <a-animation
+            attribute="rotation"
+            from="0 0 0"
+            to="0 360 0"
+            dur="15000"
+            repeat="indefinite"
+            easing="linear"
+          ></a-animation>
+        </a-entity>
+
+        <a-light type="ambient" intensity="0.8"></a-light>
+        <a-light type="directional" intensity="1.5" position="2 3 1"></a-light>
+        <a-light type="point" intensity="1.0" position="0 1 0"></a-light>
+      </a-entity>
+    </a-marker>
+
+    <!-- Modelo anclado en el mundo (invisible hasta inicializar) -->
+    <a-entity id="world-model" visible="false" position="0 0 -3">
+      <a-box
+        color="#000000"
+        scale="0.6 0.6 0.6"
+        material="opacity: 0.3; transparent: true;"
+      >
+        <a-box color="#00ff88" scale="1.02 1.02 1.02" material="opacity: 0.2; transparent: true;"></a-box>
+      </a-box>
+
+      <a-entity
+        gltf-model="modelos/Chicken.glb"
+        scale="4 4 4"
+        position="0 0 0"
+        rotation="0 0 0"
+      >
+        <a-animation
+          attribute="rotation"
+          from="0 0 0"
+          to="0 360 0"
+          dur="15000"
+          repeat="indefinite"
+          easing="linear"
+        ></a-animation>
+      </a-entity>
+
+      <a-light type="ambient" intensity="0.8"></a-light>
+      <a-light type="directional" intensity="1.5" position="2 3 1"></a-light>
+      <a-light type="point" intensity="1.0" position="0 1 0"></a-light>
+    </a-entity>
+
+    <!-- Cámara con giroscopio -->
+    <a-camera
+      id="ar-camera"
+      look-controls="enabled: false"
+      wasd-controls="enabled: false"
+    ></a-camera>
+  </a-scene>
+
+  <!-- UI Overlay -->
+  <div id="ui-overlay" style="display:none;">
+    <div id="topbar">
+      <span id="logo">🎯 GYRO MODE</span>
+      <div style="display:flex; align-items:center;">
+        <span id="status-dot"></span>
+        <span id="status-text">BUSCANDO MARCADOR</span>
+      </div>
+    </div>
+
+    <div id="instruction-card">
+      <span class="icon">🎯</span>
+      <p><strong>Apunta al marcador #3</strong><br>para anclar el modelo en el espacio</p>
+    </div>
+  </div>
+
+  <script>
+    let isGyroMode = false;
+    let markerDetectedOnce = false;
+
+    function startAR() {
+      document.getElementById('permission-screen').style.display = 'none';
+      document.getElementById('ar-scene').style.display = 'block';
+      document.getElementById('ui-overlay').style.display = 'block';
+
+      const marker = document.getElementById('marker-init');
+      const tempModel = document.getElementById('temp-model');
+      const worldModel = document.getElementById('world-model');
+      const camera = document.getElementById('ar-camera');
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const instructionCard = document.getElementById('instruction-card');
+
+      // Evento: Marcador detectado
+      marker.addEventListener('markerFound', () => {
+        if (!markerDetectedOnce) {
+          console.log('🎯 MARCADOR DETECTADO - Inicializando posición');
+
+          // Mostrar modelo temporal
+          tempModel.setAttribute('visible', true);
+
+          statusDot.classList.add('found');
+          statusText.textContent = 'MARCADOR DETECTADO';
+
+          // Esperar 2 segundos para que el usuario vea el modelo
+          setTimeout(() => {
+            if (!isGyroMode) {
+              activateGyroMode();
+            }
+          }, 2000);
+        }
+      });
+
+      function activateGyroMode() {
+        console.log('🔄 ACTIVANDO MODO GIROSCOPIO');
+
+        isGyroMode = true;
+        markerDetectedOnce = true;
+
+        // Copiar posición del marcador al modelo del mundo
+        const markerWorldPos = new THREE.Vector3();
+        marker.object3D.getWorldPosition(markerWorldPos);
+
+        // Ajustar posición del modelo en el mundo
+        worldModel.object3D.position.copy(markerWorldPos);
+        worldModel.object3D.position.y += 0.5; // Elevar un poco
+
+        // Mostrar modelo del mundo
+        worldModel.setAttribute('visible', true);
+
+        // Ocultar modelo temporal
+        tempModel.setAttribute('visible', false);
+
+        // Activar look-controls con giroscopio
+        camera.setAttribute('look-controls', 'enabled: true; magicWindowTrackingEnabled: true; touchEnabled: false');
+
+        // Actualizar UI
+        statusDot.classList.remove('found');
+        statusDot.classList.add('gyro');
+        statusText.textContent = 'MODO GIROSCOPIO ACTIVO';
+
+        // Actualizar instrucciones
+        instructionCard.querySelector('.icon').textContent = '🔄';
+        instructionCard.querySelector('p').innerHTML = '<strong>Mueve tu móvil</strong><br>para ver el modelo desde todos los ángulos<br><small style="color:#0088ff;">Ya no necesitas el marcador</small>';
+
+        console.log('✅ Modo giroscopio activado. Puedes quitar el marcador.');
+      }
+    }
+  </script>
+
+</body>
+</html>
