@@ -250,7 +250,7 @@
               colorManagement: true;
               sortObjects: true;"
     vr-mode-ui="enabled: false"
-    style="display:none; background: transparent;"
+    style="visibility: hidden; background: transparent;"
   >
     <!-- Modelo 3D (inicialmente oculto) -->
     <a-entity id="hand-model" visible="false">
@@ -311,8 +311,32 @@
 
       document.getElementById('permission-screen').style.display = 'none';
       document.getElementById('video-container').style.display = 'block';
-      document.getElementById('ar-scene').style.display = 'block';
+      document.getElementById('ar-scene').style.visibility = 'visible';
       document.getElementById('ui-overlay').style.display = 'block';
+
+      // CRÍTICO: Forzar resize del canvas de A-Frame después de mostrar la escena
+      const scene = document.querySelector('a-scene');
+
+      // Esperar un frame para que el DOM se actualice
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      // Forzar resize del renderer
+      if (scene.renderer) {
+        const canvas = scene.canvas;
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        canvas.width = width;
+        canvas.height = height;
+
+        scene.camera.aspect = width / height;
+        scene.camera.updateProjectionMatrix();
+        scene.renderer.setSize(width, height);
+
+        console.log('📐 Canvas resized:', width, 'x', height);
+      }
 
       const videoElement = document.getElementById('input-video');
       const canvasElement = document.getElementById('output-canvas');
