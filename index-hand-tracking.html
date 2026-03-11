@@ -307,66 +307,52 @@
     let smoothingFactor = 0.3; // 0.1 = muy suave, 0.5 = más reactivo
 
     async function startHandTracking() {
-      console.log('🚀 Iniciando Hand Tracking...');
+      try {
+        console.log('🚀 Iniciando Hand Tracking...');
 
-      document.getElementById('permission-screen').style.display = 'none';
-      document.getElementById('video-container').style.display = 'block';
-      document.getElementById('ar-scene').style.display = 'block';
-      document.getElementById('ui-overlay').style.display = 'block';
+        document.getElementById('permission-screen').style.display = 'none';
+        document.getElementById('video-container').style.display = 'block';
+        document.getElementById('ar-scene').style.display = 'block';
+        document.getElementById('ui-overlay').style.display = 'block';
 
-      // CRÍTICO: Forzar resize del canvas de A-Frame después de mostrar la escena
-      const scene = document.querySelector('a-scene');
+        const videoElement = document.getElementById('input-video');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
 
-      // Esperar a que A-Frame se inicialice completamente
-      setTimeout(() => {
-        const canvas = scene.canvas;
-        if (canvas && scene.renderer) {
-          const width = window.innerWidth;
-          const height = window.innerHeight;
+        // Esperar a que A-Frame cargue
+        const scene = document.querySelector('a-scene');
 
-          canvas.style.width = width + 'px';
-          canvas.style.height = height + 'px';
-          scene.renderer.setSize(width, height, false);
+        const initScene = () => {
+          console.log('📦 A-Frame scene cargada');
 
-          if (scene.camera) {
-            scene.camera.aspect = width / height;
-            scene.camera.updateProjectionMatrix();
+          // Forzar resize del canvas
+          setTimeout(() => {
+            if (scene.canvas && scene.renderer) {
+              const width = window.innerWidth;
+              const height = window.innerHeight;
+              scene.renderer.setSize(width, height, false);
+              console.log('📐 Canvas resized:', width, 'x', height);
+            }
+          }, 100);
+
+          const handModel = document.getElementById('hand-model');
+          const modelEntity = handModel?.querySelector('[gltf-model]');
+
+          if (modelEntity) {
+            modelEntity.addEventListener('model-loaded', () => {
+              console.log('✅ Modelo 3D cargado correctamente');
+            });
+            modelEntity.addEventListener('model-error', (e) => {
+              console.error('❌ Error cargando modelo:', e.detail);
+            });
           }
+        };
 
-          console.log('📐 Canvas resized:', width, 'x', height);
+        if (scene.hasLoaded) {
+          initScene();
+        } else {
+          scene.addEventListener('loaded', initScene);
         }
-      }, 100); // Delay de 100ms para que A-Frame termine de inicializar
-
-      const videoElement = document.getElementById('input-video');
-      const canvasElement = document.getElementById('output-canvas');
-      const canvasCtx = canvasElement.getContext('2d');
-
-      // Esperar a que A-Frame cargue
-      const scene = document.querySelector('a-scene');
-      if (scene.hasLoaded) {
-        setupModelListeners();
-      } else {
-        scene.addEventListener('loaded', setupModelListeners);
-      }
-
-      function setupModelListeners() {
-        console.log('📦 A-Frame scene cargada');
-        const handModel = document.getElementById('hand-model');
-        const modelEntity = handModel.querySelector('[gltf-model]');
-
-        console.log('🔍 Hand model entity:', handModel);
-        console.log('🔍 Model gltf entity:', modelEntity);
-
-        if (modelEntity) {
-          modelEntity.addEventListener('model-loaded', () => {
-            console.log('✅ Modelo 3D cargado correctamente');
-          });
-
-          modelEntity.addEventListener('model-error', (e) => {
-            console.error('❌ Error cargando modelo:', e.detail);
-          });
-        }
-      }
 
       // Configurar MediaPipe Hands
       hands = new Hands({
@@ -408,6 +394,16 @@
         canvasElement.width = videoElement.videoWidth;
         canvasElement.height = videoElement.videoHeight;
       });
+
+      } catch (error) {
+        console.error('❌ Error al iniciar Hand Tracking:', error);
+        alert('Error al iniciar la cámara: ' + error.message);
+        // Volver a mostrar pantalla de inicio
+        document.getElementById('permission-screen').style.display = 'flex';
+        document.getElementById('video-container').style.display = 'none';
+        document.getElementById('ar-scene').style.display = 'none';
+        document.getElementById('ui-overlay').style.display = 'none';
+      }
     }
 
     function onHandsResults(results) {
