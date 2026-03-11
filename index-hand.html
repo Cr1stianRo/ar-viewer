@@ -221,7 +221,7 @@
   <div id="permission-screen">
     <div class="big-icon">✋</div>
     <h1>HAND TRACKING AR</h1>
-    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara para ver el modelo 3D flotando sobre tu palma.</p>
+    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara. El modelo 3D flotará sobre tu palma y <strong style="color:#00ff88">rotará cuando muevas tu mano</strong>.</p>
     <button id="start-btn" onclick="startHandTracking()">INICIAR CÁMARA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
@@ -415,7 +415,7 @@
 
     <div id="instruction-card">
       <span class="icon">✋</span>
-      <p>Muestra tu <strong>mano abierta</strong><br>frente a la cámara (15-50cm)</p>
+      <p>Muestra tu <strong>mano abierta</strong><br>frente a la cámara (15-50cm)<br><small style="color:#00ff88;">Rota tu mano para rotar el modelo</small></p>
     </div>
   </div>
 
@@ -480,27 +480,79 @@
         // Mano detectada
         const landmarks = results.multiHandLandmarks[0];
 
+        // ========== POSICIÓN ==========
         // Usar el centro de la palma (landmark #9 = punto central de la mano)
         const palmCenter = landmarks[9];
 
         // Convertir coordenadas normalizadas (0-1) a posición 3D
-        // X: -1 a 1 (izquierda a derecha)
-        // Y: 1 a -1 (arriba a abajo, invertido porque coordenadas canvas)
-        // Z: profundidad estimada
-        const targetX = (palmCenter.x - 0.5) * 4; // Escalar a rango -2 a 2
-        const targetY = -(palmCenter.y - 0.5) * 3; // Invertir Y, escalar
-        const targetZ = -palmCenter.z * 2 - 3; // Más cerca = más negativo
+        const targetX = (palmCenter.x - 0.5) * 4;
+        const targetY = -(palmCenter.y - 0.5) * 3;
+        const targetZ = -palmCenter.z * 2 - 3;
 
-        // Suavizado (lerp) para evitar temblores
+        // Suavizado de posición
         lastHandPosition.x += (targetX - lastHandPosition.x) * smoothingFactor;
         lastHandPosition.y += (targetY - lastHandPosition.y) * smoothingFactor;
         lastHandPosition.z += (targetZ - lastHandPosition.z) * smoothingFactor;
 
-        // Actualizar posición del modelo
+        // ========== ROTACIÓN (orientación de la mano) ==========
+        // Landmarks clave para calcular orientación:
+        // 0 = muñeca
+        // 5 = base del índice
+        // 9 = centro palma
+        // 17 = base del meñique
+
+        const wrist = landmarks[0];
+        const indexBase = landmarks[5];
+        const pinkyBase = landmarks[17];
+        const middleFinger = landmarks[12];
+
+        // Vector horizontal de la palma (de meñique a índice)
+        const palmWidthX = indexBase.x - pinkyBase.x;
+        const palmWidthY = indexBase.y - pinkyBase.y;
+        const palmWidthZ = indexBase.z - pinkyBase.z;
+
+        // Vector vertical de la palma (de muñeca a dedos)
+        const palmHeightX = middleFinger.x - wrist.x;
+        const palmHeightY = middleFinger.y - wrist.y;
+        const palmHeightZ = middleFinger.z - wrist.z;
+
+        // Calcular normal de la palma (producto cruz)
+        const normalX = palmWidthY * palmHeightZ - palmWidthZ * palmHeightY;
+        const normalY = palmWidthZ * palmHeightX - palmWidthX * palmHeightZ;
+        const normalZ = palmWidthX * palmHeightY - palmWidthY * palmHeightX;
+
+        // Normalizar vector normal
+        const normalLength = Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
+        const normX = normalX / normalLength;
+        const normY = normalY / normalLength;
+        const normZ = normalZ / normalLength;
+
+        // Convertir normal a ángulos de Euler (en grados)
+        // Rotación en X (pitch - inclinación arriba/abajo)
+        const targetRotX = Math.atan2(normY, Math.sqrt(normX * normX + normZ * normZ)) * (180 / Math.PI);
+
+        // Rotación en Y (yaw - giro izquierda/derecha)
+        const targetRotY = Math.atan2(normX, normZ) * (180 / Math.PI);
+
+        // Rotación en Z (roll - inclinación lateral)
+        const targetRotZ = Math.atan2(palmWidthY, palmWidthX) * (180 / Math.PI) - 90;
+
+        // Suavizado de rotación
+        lastHandRotation.x += (targetRotX - lastHandRotation.x) * smoothingFactor;
+        lastHandRotation.y += (targetRotY - lastHandRotation.y) * smoothingFactor;
+        lastHandRotation.z += (targetRotZ - lastHandRotation.z) * smoothingFactor;
+
+        // ========== APLICAR TRANSFORMACIONES ==========
         handModel.setAttribute('position', {
           x: lastHandPosition.x,
           y: lastHandPosition.y,
           z: lastHandPosition.z
+        });
+
+        handModel.setAttribute('rotation', {
+          x: lastHandRotation.x,
+          y: lastHandRotation.y,
+          z: lastHandRotation.z
         });
 
         // Mostrar modelo si estaba oculto
