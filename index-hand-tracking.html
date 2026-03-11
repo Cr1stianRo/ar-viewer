@@ -230,7 +230,7 @@
   <div id="permission-screen">
     <div class="big-icon">🧊</div>
     <h1>MERGE CUBE AR</h1>
-    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara. Un <strong style="color:#00ff88">cubo holográfico</strong> aparecerá con un cerebro humano 3D dentro. Rota tu mano para ver todos los ángulos.</p>
+    <p>Muestra tu <strong style="color:#00ff88">mano abierta</strong> frente a la cámara. Un <strong style="color:#00ff88">cubo holográfico</strong> aparecerá con una gallina 3D dentro. Rota tu mano para ver todos los ángulos.</p>
     <button id="start-btn" onclick="startHandTracking()">INICIAR EXPERIENCIA</button>
     <p id="hint">Necesita acceso a la cámara para funcionar</p>
   </div>
@@ -273,12 +273,12 @@
         ></a-box>
       </a-box>
 
-      <!-- MODELO 3D DETALLADO - CEREBRO HUMANO ANATÓMICO -->
+      <!-- MODELO 3D DETALLADO - GALLINA -->
       <a-entity
-        id="brain-model"
-        gltf-model="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BrainStem/glTF-Binary/BrainStem.glb"
+        id="chicken-model"
+        gltf-model="modelos/Chicken.glb"
         position="0 0 0"
-        scale="3.5 3.5 3.5"
+        scale="6 6 6"
         rotation="0 0 0"
       >
         <!-- Animación de rotación lenta continua (efecto showcase) -->
