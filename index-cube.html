@@ -3,13 +3,157 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Cubo AR</title>
+  <title>Cubo AR - Orientación Real</title>
 
   <!-- A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe-master.min.js"></script>
 
   <!-- MindAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <!-- COMPONENTE: SEGUIR ORIENTACIÓN DEL CUBO -->
+  <script>
+    if (typeof AFRAME !== 'undefined') {
+      AFRAME.registerComponent('follow-cube-orientation', {
+        schema: {
+          smoothing: { type: 'number', default: 0.2 }
+        },
+
+        init: function() {
+          console.log('🎲 Inicializando follow-cube-orientation');
+
+          // Referencias a los 6 targets
+          this.targets = {
+            0: null, // derecha
+            1: null, // arriba
+            2: null, // abajo
+            3: null, // atrás
+            4: null, // frontal
+            5: null  // izquierda
+          };
+
+          // Mapeo de rotaciones por cara (en grados)
+          this.faceRotations = {
+            0: { x: 0, y: 90, z: 0 },    // derecha
+            1: { x: -90, y: 0, z: 0 },   // arriba
+            2: { x: 90, y: 0, z: 0 },    // abajo
+            3: { x: 0, y: 180, z: 0 },   // atrás
+            4: { x: 0, y: 0, z: 0 },     // frontal (referencia)
+            5: { x: 0, y: -90, z: 0 }    // izquierda
+          };
+
+          // Estado
+          this.currentTarget = null;
+          this.currentTargetIndex = null;
+          this.isVisible = false;
+
+          // Vectores reutilizables (performance)
+          this.targetPos = new THREE.Vector3();
+          this.targetQuat = new THREE.Quaternion();
+          this.currentQuat = new THREE.Quaternion();
+          this.offsetQuat = new THREE.Quaternion();
+          this.finalQuat = new THREE.Quaternion();
+
+          // Euler para rotaciones
+          this.offsetEuler = new THREE.Euler();
+
+          // Buscar targets
+          this.findTargets();
+        },
+
+        findTargets: function() {
+          const findInterval = setInterval(() => {
+            let allFound = true;
+
+            for (let i = 0; i < 6; i++) {
+              if (!this.targets[i]) {
+                const target = document.getElementById(`target-${i}`);
+                if (target) {
+                  this.targets[i] = target;
+                  this.setupTargetEvents(i);
+                  console.log(`✅ Target ${i} encontrado y configurado`);
+                } else {
+                  allFound = false;
+                }
+              }
+            }
+
+            if (allFound) {
+              console.log('✅ Todos los targets configurados');
+              clearInterval(findInterval);
+            }
+          }, 100);
+        },
+
+        setupTargetEvents: function(index) {
+          const target = this.targets[index];
+
+          target.addEventListener('targetFound', () => {
+            console.log(`\n🎯 CARA ${index} DETECTADA`);
+            this.currentTarget = target;
+            this.currentTargetIndex = index;
+            this.isVisible = true;
+            this.el.setAttribute('visible', true);
+
+            // Log de orientación
+            const rotation = this.faceRotations[index];
+            console.log(`   Rotación offset: X=${rotation.x}° Y=${rotation.y}° Z=${rotation.z}°`);
+          });
+
+          target.addEventListener('targetLost', () => {
+            console.log(`⚠️ CARA ${index} PERDIDA`);
+
+            if (this.currentTargetIndex === index) {
+              this.currentTarget = null;
+              this.currentTargetIndex = null;
+              this.isVisible = false;
+              this.el.setAttribute('visible', false);
+            }
+          });
+        },
+
+        tick: function(time, timeDelta) {
+          if (!this.isVisible || !this.currentTarget) return;
+
+          const targetObj = this.currentTarget.object3D;
+          const modelObj = this.el.object3D;
+          const smoothing = this.data.smoothing;
+          const index = this.currentTargetIndex;
+
+          // 1. OBTENER POSICIÓN DEL TARGET
+          targetObj.getWorldPosition(this.targetPos);
+
+          // 2. OBTENER ROTACIÓN DEL TARGET
+          targetObj.getWorldQuaternion(this.targetQuat);
+
+          // 3. CREAR OFFSET DE ROTACIÓN SEGÚN LA CARA
+          const faceRot = this.faceRotations[index];
+          this.offsetEuler.set(
+            THREE.MathUtils.degToRad(faceRot.x),
+            THREE.MathUtils.degToRad(faceRot.y),
+            THREE.MathUtils.degToRad(faceRot.z),
+            'XYZ'
+          );
+          this.offsetQuat.setFromEuler(this.offsetEuler);
+
+          // 4. COMBINAR ROTACIÓN DEL TARGET + OFFSET
+          this.finalQuat.copy(this.targetQuat);
+          this.finalQuat.multiply(this.offsetQuat);
+
+          // 5. APLICAR TRANSFORMACIÓN CON SMOOTHING
+          // Position (lerp)
+          modelObj.position.lerp(this.targetPos, smoothing);
+
+          // Rotation (slerp para suavidad)
+          this.currentQuat.copy(modelObj.quaternion);
+          this.currentQuat.slerp(this.finalQuat, smoothing);
+          modelObj.quaternion.copy(this.currentQuat);
+        }
+      });
+
+      console.log('✅ Componente follow-cube-orientation registrado');
+    }
+  </script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,6 +196,7 @@
       padding: 40px;
       text-align: center;
       font-family: monospace;
+      color: #fff;
     }
 
     #permission-screen .big-icon {
@@ -60,9 +205,15 @@
 
     #permission-screen h1 {
       font-size: 20px;
-      color: #fff;
+      color: #00ff88;
       letter-spacing: 3px;
       font-weight: 700;
+    }
+
+    #permission-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.6;
     }
 
     #start-btn {
@@ -92,7 +243,9 @@
   <!-- Permission Screen -->
   <div id="permission-screen">
     <div class="big-icon">🎲</div>
-    <h1>CUBO AR</h1>
+    <h1>CUBO AR - ORIENTACIÓN REAL</h1>
+    <p>El modelo 3D sigue la orientación del cubo en tiempo real<br>
+    Rotación suave y continua según la cara detectada</p>
     <button id="start-btn" onclick="startAR()">INICIAR</button>
   </div>
 
@@ -104,10 +257,10 @@
                   uiLoading: no;
                   uiError: no;
                   uiScanning: no;
-                  filterMinCF: 0.001;
-                  filterBeta: 10;
+                  filterMinCF: 0.0001;
+                  filterBeta: 1000;
                   warmupTolerance: 2;
-                  missTolerance: 0;
+                  missTolerance: 5;
                   maxTrack: 1;"
     embedded
     color-space="sRGB"
@@ -117,86 +270,27 @@
     style="display:none;"
   >
 
-    <!-- CARA 0 - MODELO CHICKEN.GLB -->
-    <a-entity id="target-0" mindar-image-target="targetIndex: 0">
+    <!-- TARGETS (invisibles, solo para tracking) -->
+    <a-entity id="target-0" mindar-image-target="targetIndex: 0"></a-entity>
+    <a-entity id="target-1" mindar-image-target="targetIndex: 1"></a-entity>
+    <a-entity id="target-2" mindar-image-target="targetIndex: 2"></a-entity>
+    <a-entity id="target-3" mindar-image-target="targetIndex: 3"></a-entity>
+    <a-entity id="target-4" mindar-image-target="targetIndex: 4"></a-entity>
+    <a-entity id="target-5" mindar-image-target="targetIndex: 5"></a-entity>
+
+    <!-- MODELO 3D (sigue la orientación del cubo) -->
+    <a-entity id="cube-model" follow-cube-orientation="smoothing: 0.2" visible="false">
       <a-gltf-model
-        id="face-0"
         src="modelos/Chicken.glb"
         position="0 0 0"
-        rotation="-90 0 0"
-        scale="0.01 0.01 0.01"
-        visible="false"
+        rotation="0 0 0"
+        scale="0.015 0.015 0.015"
       ></a-gltf-model>
-    </a-entity>
-
-    <!-- CARA 1 - AZUL -->
-    <a-entity id="target-1" mindar-image-target="targetIndex: 1">
-      <a-plane
-        id="face-1"
-        width="1"
-        height="1"
-        position="0 0 0.01"
-        rotation="0 0 0"
-        material="color: #3333ff; opacity: 0.9; side: double; transparent: true; shader: flat;"
-        visible="false"
-      ></a-plane>
-    </a-entity>
-
-    <!-- CARA 2 - VERDE -->
-    <a-entity id="target-2" mindar-image-target="targetIndex: 2">
-      <a-plane
-        id="face-2"
-        width="1"
-        height="1"
-        position="0 0 0.01"
-        rotation="0 0 0"
-        material="color: #33ff33; opacity: 0.9; side: double; transparent: true; shader: flat;"
-        visible="false"
-      ></a-plane>
-    </a-entity>
-
-    <!-- CARA 3 - AMARILLA -->
-    <a-entity id="target-3" mindar-image-target="targetIndex: 3">
-      <a-plane
-        id="face-3"
-        width="1"
-        height="1"
-        position="0 0 0.01"
-        rotation="0 0 0"
-        material="color: #ffff33; opacity: 0.9; side: double; transparent: true; shader: flat;"
-        visible="false"
-      ></a-plane>
-    </a-entity>
-
-    <!-- CARA 4 - MAGENTA -->
-    <a-entity id="target-4" mindar-image-target="targetIndex: 4">
-      <a-plane
-        id="face-4"
-        width="1"
-        height="1"
-        position="0 0 0.01"
-        rotation="0 0 0"
-        material="color: #ff33ff; opacity: 0.9; side: double; transparent: true; shader: flat;"
-        visible="false"
-      ></a-plane>
-    </a-entity>
-
-    <!-- CARA 5 - CYAN -->
-    <a-entity id="target-5" mindar-image-target="targetIndex: 5">
-      <a-plane
-        id="face-5"
-        width="1"
-        height="1"
-        position="0 0 0.01"
-        rotation="0 0 0"
-        material="color: #33ffff; opacity: 0.9; side: double; transparent: true; shader: flat;"
-        visible="false"
-      ></a-plane>
     </a-entity>
 
     <!-- Iluminación -->
     <a-light type="ambient" intensity="1.0"></a-light>
-    <a-light type="directional" intensity="1.2" position="1 1 1"></a-light>
+    <a-light type="directional" intensity="1.5" position="1 1 1"></a-light>
     <a-light type="point" intensity="0.8" position="-1 0.5 0"></a-light>
 
     <a-camera
@@ -206,24 +300,16 @@
     ></a-camera>
   </a-scene>
 
-  <!-- LÓGICA -->
+  <!-- LÓGICA PRINCIPAL -->
   <script>
-    console.log('🎲 CUBO AR - Inicializando...');
-
-    const state = {
-      detectedFaces: new Set(),
-      currentFace: null,
-      allFaces: [0, 1, 2, 3, 4, 5],
-      faceElements: {},
-      targetElements: {}
-    };
+    console.log('🎲 CUBO AR - Sistema de orientación real\n');
 
     // ========== FORZAR CÁMARA PRINCIPAL (NO WIDE) ==========
     (function setupCamera() {
       const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 
       navigator.mediaDevices.getUserMedia = async function(constraints) {
-        console.log('📹 Solicitando cámara...');
+        console.log('📹 Configurando cámara...');
 
         if (constraints && constraints.video) {
           const devices = await navigator.mediaDevices.enumerateDevices();
@@ -235,19 +321,22 @@
           const mainCamera = cameras.find(d => {
             const label = (d.label || '').toLowerCase();
             const isBack = label.includes('back') || label.includes('rear') || label.includes('trasera');
-            const notWide = !label.includes('wide') && !label.includes('ultra') && !label.includes('0.5') && !label.includes('grand');
+            const notWide = !label.includes('wide') &&
+                           !label.includes('ultra') &&
+                           !label.includes('0.5') &&
+                           !label.includes('grand') &&
+                           !label.includes('ultrawide');
             return isBack && notWide;
           });
 
           if (mainCamera) {
-            console.log('✅ CÁMARA PRINCIPAL ENCONTRADA:', mainCamera.label);
+            console.log('✅ CÁMARA PRINCIPAL:', mainCamera.label);
 
             constraints.video = {
               deviceId: { exact: mainCamera.deviceId },
               width: { ideal: 1920, max: 1920 },
               height: { ideal: 1080, max: 1080 },
-              frameRate: { ideal: 60, max: 60 },
-              aspectRatio: { ideal: 16/9 }
+              frameRate: { ideal: 60, max: 60 }
             };
 
             // Autofocus continuo
@@ -257,7 +346,7 @@
               { whiteBalanceMode: 'continuous' }
             ];
           } else {
-            console.warn('⚠️ Cámara principal no encontrada, usando environment');
+            console.warn('⚠️ Cámara principal no encontrada');
             constraints.video = {
               facingMode: { exact: 'environment' },
               width: { ideal: 1920 },
@@ -270,41 +359,13 @@
         return original(constraints);
       };
 
-      console.log('✅ Interceptor de cámara instalado');
+      console.log('✅ Interceptor de cámara instalado\n');
     })();
-
-    // ========== OCULTAR TODAS LAS CARAS ==========
-    function hideAllFaces() {
-      state.allFaces.forEach(i => {
-        const face = state.faceElements[i];
-        if (face) {
-          face.setAttribute('visible', false);
-        }
-      });
-    }
-
-    // ========== MOSTRAR SOLO UNA CARA ==========
-    function showOnlyFace(faceIndex) {
-      console.log(`🎯 Mostrando cara ${faceIndex}`);
-
-      // Ocultar todas
-      hideAllFaces();
-
-      // Mostrar solo la detectada
-      const face = state.faceElements[faceIndex];
-      if (face) {
-        face.setAttribute('visible', true);
-        console.log(`✅ Cara ${faceIndex} visible`);
-      }
-
-      state.currentFace = faceIndex;
-      state.detectedFaces.add(faceIndex);
-    }
 
     // ========== INICIAR AR ==========
     async function startAR() {
       try {
-        console.log('🚀 Iniciando AR...');
+        console.log('🚀 Iniciando AR...\n');
 
         document.getElementById('permission-screen').style.display = 'none';
         document.getElementById('ar-scene').style.display = 'block';
@@ -330,13 +391,6 @@
       const scene = document.querySelector('a-scene');
       const arSystem = scene.systems['mindar-image-system'];
 
-      // Cachear elementos
-      state.allFaces.forEach(i => {
-        state.faceElements[i] = document.getElementById(`face-${i}`);
-        state.targetElements[i] = document.getElementById(`target-${i}`);
-        console.log(`📦 Cara ${i}:`, state.faceElements[i] ? 'OK' : 'ERROR');
-      });
-
       // Iniciar MindAR
       arSystem.start();
       console.log('✅ MindAR iniciado');
@@ -344,56 +398,27 @@
       // Forzar resize
       setTimeout(() => {
         if (scene.renderer) {
-          scene.renderer.setSize(window.innerWidth, window.innerHeight, false);
-          console.log('📐 Renderer resized');
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          scene.renderer.setSize(w, h, false);
+          console.log(`📐 Renderer: ${w}x${h}`);
         }
       }, 100);
 
-      // Configurar tracking
-      setupTracking();
-
       console.log('✅ Sistema listo\n');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('MAPEO DE CARAS:');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Target 0 → DERECHA   (Y: 90°)');
+      console.log('Target 1 → ARRIBA    (X: -90°)');
+      console.log('Target 2 → ABAJO     (X: 90°)');
+      console.log('Target 3 → ATRÁS     (Y: 180°)');
+      console.log('Target 4 → FRONTAL   (referencia)');
+      console.log('Target 5 → IZQUIERDA (Y: -90°)');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     }
 
-    // ========== CONFIGURAR TRACKING ==========
-    function setupTracking() {
-      console.log('🎯 Configurando tracking...\n');
-
-      state.allFaces.forEach(i => {
-        const target = state.targetElements[i];
-
-        if (!target) {
-          console.error(`❌ Target ${i} no encontrado`);
-          return;
-        }
-
-        // TARGET ENCONTRADO
-        target.addEventListener('targetFound', () => {
-          console.log(`✅ TARGET ${i} DETECTADO`);
-          showOnlyFace(i);
-        });
-
-        // TARGET PERDIDO
-        target.addEventListener('targetLost', () => {
-          console.log(`⚠️ TARGET ${i} PERDIDO`);
-
-          const face = state.faceElements[i];
-          if (face) {
-            face.setAttribute('visible', false);
-          }
-
-          if (state.currentFace === i) {
-            state.currentFace = null;
-          }
-        });
-
-        console.log(`✅ Target ${i} configurado`);
-      });
-
-      console.log('\n✅ Tracking configurado\n');
-    }
-
-    console.log('✅ Sistema cargado\n');
+    console.log('✅ Sistema cargado. Presiona INICIAR.\n');
   </script>
 
 </body>
