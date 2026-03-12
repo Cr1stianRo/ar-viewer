@@ -3,48 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AR Viewer — Cubo Mágico</title>
+  <title>AR Viewer — Cubo Aumentado</title>
 
   <!-- A-Frame -->
   <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe-master.min.js"></script>
 
   <!-- MindAR -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-  <!-- ========== COMPONENTE DE SMOOTHING ========== -->
-  <script>
-    if (typeof AFRAME !== 'undefined') {
-      AFRAME.registerComponent('smooth-transform', {
-        schema: {
-          factor: { type: 'number', default: 0.15 }
-        },
-
-        init: function() {
-          this.targetPosition = new THREE.Vector3();
-          this.targetRotation = new THREE.Euler();
-          this.currentPosition = new THREE.Vector3();
-          this.currentRotation = new THREE.Euler();
-        },
-
-        tick: function() {
-          const object3D = this.el.object3D;
-          const factor = this.data.factor;
-
-          // Smooth position
-          this.targetPosition.copy(object3D.position);
-          this.currentPosition.lerp(this.targetPosition, factor);
-          object3D.position.copy(this.currentPosition);
-
-          // Smooth rotation
-          this.targetRotation.copy(object3D.rotation);
-          this.currentRotation.x += (this.targetRotation.x - this.currentRotation.x) * factor;
-          this.currentRotation.y += (this.targetRotation.y - this.currentRotation.y) * factor;
-          this.currentRotation.z += (this.targetRotation.z - this.currentRotation.z) * factor;
-          object3D.rotation.copy(this.currentRotation);
-        }
-      });
-    }
-  </script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
@@ -64,7 +29,7 @@
       background: #0a0a0a;
     }
 
-    /* Fix para canvas de MindAR */
+    /* Canvas fullscreen */
     #ar-scene {
       width: 100% !important;
       height: 100% !important;
@@ -93,111 +58,112 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
     }
 
     #logo {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: 3px;
-      color: #ff00ff;
+      color: #00ff88;
       text-transform: uppercase;
     }
 
+    #status-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     #status-dot {
-      width: 8px; height: 8px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: #ff4444;
-      box-shadow: 0 0 8px #ff4444;
+      box-shadow: 0 0 10px #ff4444;
       animation: pulse 1.5s ease-in-out infinite;
-      display: inline-block;
-      margin-right: 8px;
     }
-    #status-dot.found {
+
+    #status-dot.tracking {
       background: #00ff88;
-      box-shadow: 0 0 8px #00ff88;
+      box-shadow: 0 0 10px #00ff88;
       animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
     }
 
     #status-text {
       font-size: 11px;
       color: #aaa;
       letter-spacing: 1px;
+      text-transform: uppercase;
     }
 
-    #face-indicator {
+    #face-counter {
       position: absolute;
-      top: 60px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 0, 255, 0.9);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-      padding: 12px 24px;
+      top: 70px;
+      right: 20px;
+      background: rgba(0, 255, 136, 0.15);
+      border: 1px solid rgba(0, 255, 136, 0.4);
       border-radius: 8px;
-      letter-spacing: 2px;
-      display: none;
-      box-shadow: 0 4px 20px rgba(255, 0, 255, 0.5);
-      animation: slideDown 0.3s ease;
+      padding: 12px 20px;
+      font-size: 12px;
+      color: #00ff88;
+      letter-spacing: 1px;
+      font-weight: 700;
     }
 
-    #face-indicator.show {
+    #face-counter .number {
+      font-size: 24px;
       display: block;
-    }
-
-    @keyframes slideDown {
-      from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
-      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+      margin-top: 5px;
     }
 
     #instruction-card {
       position: absolute;
-      bottom: 40px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(10, 10, 10, 0.85);
-      border: 1px solid rgba(255, 0, 255, 0.3);
+      background: rgba(10, 10, 10, 0.9);
+      border: 1px solid rgba(0, 255, 136, 0.3);
       border-radius: 12px;
-      padding: 18px 28px;
+      padding: 20px 30px;
       text-align: center;
       backdrop-filter: blur(10px);
-      transition: opacity 0.5s ease;
-      min-width: 260px;
       max-width: 90%;
+      transition: opacity 0.3s ease;
     }
 
     #instruction-card.hidden {
       opacity: 0;
+      pointer-events: none;
     }
 
     #instruction-card .icon {
-      font-size: 28px;
-      margin-bottom: 8px;
+      font-size: 32px;
+      margin-bottom: 10px;
       display: block;
     }
 
     #instruction-card p {
-      font-size: 12px;
+      font-size: 13px;
       color: #ccc;
       line-height: 1.6;
-      letter-spacing: 0.5px;
+      margin: 0;
     }
 
     #instruction-card strong {
-      color: #ff00ff;
+      color: #00ff88;
     }
 
     #instruction-card small {
-      font-size: 10px;
+      font-size: 11px;
       color: #888;
       display: block;
       margin-top: 8px;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
     }
 
     #permission-screen {
@@ -214,41 +180,52 @@
       text-align: center;
     }
 
-    #permission-screen .big-icon { font-size: 64px; }
+    #permission-screen .big-icon {
+      font-size: 72px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
 
     #permission-screen h1 {
-      font-size: 18px;
+      font-size: 20px;
       color: #fff;
-      letter-spacing: 2px;
+      letter-spacing: 3px;
       font-weight: 700;
+      text-transform: uppercase;
     }
 
     #permission-screen p {
-      font-size: 13px;
+      font-size: 14px;
       color: #888;
-      line-height: 1.7;
-      max-width: 320px;
+      line-height: 1.8;
+      max-width: 400px;
     }
 
     #start-btn {
       pointer-events: all;
       background: transparent;
-      border: 1px solid #ff00ff;
-      color: #ff00ff;
+      border: 2px solid #00ff88;
+      color: #00ff88;
       font-family: 'Space Mono', monospace;
-      font-size: 13px;
+      font-size: 14px;
       letter-spacing: 3px;
-      padding: 14px 32px;
+      padding: 16px 40px;
       cursor: pointer;
       text-transform: uppercase;
-      border-radius: 6px;
-      transition: all 0.2s;
-      margin-top: 10px;
+      border-radius: 8px;
+      transition: all 0.3s;
+      margin-top: 20px;
+      font-weight: 700;
     }
 
     #start-btn:hover {
-      background: #ff00ff;
+      background: #00ff88;
       color: #0a0a0a;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
     }
 
     #back-btn {
@@ -257,18 +234,19 @@
       left: 20px;
       z-index: 101;
       pointer-events: all;
-      background: rgba(255, 0, 255, 0.2);
-      border: 1px solid #ff00ff;
-      color: #ff00ff;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
       font-family: 'Space Mono', monospace;
       font-size: 11px;
-      letter-spacing: 2px;
-      padding: 10px 20px;
+      letter-spacing: 1px;
+      padding: 10px 18px;
       cursor: pointer;
       text-transform: uppercase;
       border-radius: 6px;
       transition: all 0.2s;
       display: none;
+      backdrop-filter: blur(10px);
     }
 
     #back-btn.show {
@@ -276,8 +254,33 @@
     }
 
     #back-btn:hover {
-      background: #ff00ff;
-      color: #0a0a0a;
+      background: rgba(255, 255, 255, 0.2);
+      border-color: #fff;
+    }
+
+    /* Debug panel */
+    #debug-panel {
+      position: fixed;
+      bottom: 120px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 8px;
+      padding: 10px 15px;
+      font-size: 10px;
+      color: #0f0;
+      font-family: monospace;
+      max-width: 200px;
+      display: none;
+      pointer-events: none;
+    }
+
+    #debug-panel.show {
+      display: block;
+    }
+
+    #debug-panel .line {
+      margin: 3px 0;
     }
   </style>
 </head>
@@ -286,17 +289,18 @@
   <!-- Permission Screen -->
   <div id="permission-screen">
     <div class="big-icon">🎲</div>
-    <h1>CUBO MÁGICO</h1>
-    <p><strong style="color:#ff00ff">6 caras, 6 experiencias</strong><br>
-    Apunta a cada cara del cubo y descubre contenido único<br>
-    <small style="color:#666;">Cara 1: Cubo verde | Cara 2: Esfera roja | Cara 3: Cilindro azul<br>
-    Cara 4: Texto 3D | Cara 5: Torus naranja | Cara 6: Octaedro</small></p>
-    <button id="start-btn" onclick="startAR()">INICIAR</button>
-    <p style="font-size:11px; color:#444; letter-spacing:1px;">Requiere cámara trasera principal</p>
+    <h1>Cubo Aumentado</h1>
+    <p><strong style="color:#00ff88">Realidad aumentada superpuesta</strong><br>
+    El cubo digital se superpondrá perfectamente sobre tu cubo físico<br>
+    <small style="color:#666;">Cada cara se "pintará" digitalmente cuando la detectes</small></p>
+    <button id="start-btn" onclick="startAR()">INICIAR EXPERIENCIA</button>
+    <p style="font-size:11px; color:#555; letter-spacing:1px; margin-top:20px;">
+      📱 Requiere cámara trasera • 🔲 Cubo físico con 6 caras
+    </p>
   </div>
 
   <!-- Botón de volver -->
-  <button id="back-btn" class="show" onclick="window.location.href='index.html'">← VOLVER</button>
+  <button id="back-btn" onclick="window.location.href='index.html'">← MENÚ</button>
 
   <!-- AR Scene -->
   <a-scene
@@ -313,213 +317,143 @@
                   maxTrack: 6;"
     embedded
     color-space="sRGB"
-    renderer="colorManagement: true, physicallyCorrectLights; antialias: true; precision: high;"
+    renderer="colorManagement: true; antialias: true; precision: high; alpha: true;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     style="display:none;"
   >
 
-    <!-- CARA 1: CUBO VERDE -->
-    <a-entity id="target-0" mindar-image-target="targetIndex: 0" visible="true">
-      <a-box
-        color="#00ff88"
-        position="0 0.5 0"
-        scale="0.8 0.8 0.8"
-        material="metalness: 0.3; roughness: 0.7;"
-        rotation="0 45 0"
-      >
-        <a-animation
-          attribute="rotation"
-          from="0 0 0"
-          to="0 360 0"
-          dur="4000"
-          repeat="indefinite"
-          easing="linear"
-        ></a-animation>
-      </a-box>
-
-      <!-- Texto flotante -->
-      <a-text
-        value="CARA 1"
-        color="#00ff88"
-        align="center"
-        position="0 1.5 0"
-        scale="2 2 2"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
-    </a-entity>
-
-    <!-- CARA 2: ESFERA ROJA -->
-    <a-entity id="target-1" mindar-image-target="targetIndex: 1" visible="true">
-      <a-sphere
-        color="#ff3333"
-        position="0 0.5 0"
-        radius="0.5"
-        material="metalness: 0.8; roughness: 0.2;"
-      >
-        <a-animation
-          attribute="position"
-          from="0 0.3 0"
-          to="0 0.7 0"
-          dur="2000"
-          direction="alternate"
-          repeat="indefinite"
-          easing="ease-in-out-sine"
-        ></a-animation>
-      </a-sphere>
-
-      <a-text
-        value="CARA 2"
-        color="#ff3333"
-        align="center"
-        position="0 1.5 0"
-        scale="2 2 2"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
-    </a-entity>
-
-    <!-- CARA 3: CILINDRO AZUL -->
-    <a-entity id="target-2" mindar-image-target="targetIndex: 2" visible="true">
-      <a-cylinder
-        color="#3366ff"
-        position="0 0.5 0"
-        radius="0.3"
+    <!-- ============================================ -->
+    <!-- CARA 1 - FRONTAL (Roja) -->
+    <!-- ============================================ -->
+    <a-entity id="target-0" mindar-image-target="targetIndex: 0">
+      <a-plane
+        id="face-0"
+        width="1"
         height="1"
-        material="metalness: 0.5; roughness: 0.5;"
-      >
-        <a-animation
-          attribute="rotation"
-          from="0 0 0"
-          to="360 0 0"
-          dur="3000"
-          repeat="indefinite"
-          easing="linear"
-        ></a-animation>
-      </a-cylinder>
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #ff3333; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
 
-      <a-text
-        value="CARA 3"
-        color="#3366ff"
-        align="center"
-        position="0 1.5 0"
-        scale="2 2 2"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
+      <!-- Borde para mejor visualización -->
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
     </a-entity>
 
-    <!-- CARA 4: TEXTO 3D GIRATORIO -->
-    <a-entity id="target-3" mindar-image-target="targetIndex: 3" visible="true">
-      <a-text
-        value="HOLA\nMUNDO"
-        color="#ffff00"
-        align="center"
-        position="0 0.5 0"
-        scale="3 3 3"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      >
-        <a-animation
-          attribute="rotation"
-          from="0 0 0"
-          to="0 360 0"
-          dur="5000"
-          repeat="indefinite"
-          easing="linear"
-        ></a-animation>
+    <!-- ============================================ -->
+    <!-- CARA 2 - TRASERA (Azul) -->
+    <!-- ============================================ -->
+    <a-entity id="target-1" mindar-image-target="targetIndex: 1">
+      <a-plane
+        id="face-1"
+        width="1"
+        height="1"
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #3333ff; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
 
-        <a-animation
-          attribute="scale"
-          from="2.5 2.5 2.5"
-          to="3.5 3.5 3.5"
-          dur="2000"
-          direction="alternate"
-          repeat="indefinite"
-          easing="ease-in-out-quad"
-        ></a-animation>
-      </a-text>
-
-      <a-text
-        value="CARA 4"
-        color="#ffff00"
-        align="center"
-        position="0 1.8 0"
-        scale="1.5 1.5 1.5"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
     </a-entity>
 
-    <!-- CARA 5: TORUS NARANJA -->
-    <a-entity id="target-4" mindar-image-target="targetIndex: 4" visible="true">
-      <a-torus
-        color="#ff8800"
-        position="0 0.5 0"
-        radius="0.5"
-        radius-tubular="0.1"
-        material="metalness: 0.7; roughness: 0.3;"
-      >
-        <a-animation
-          attribute="rotation"
-          from="0 0 0"
-          to="360 360 0"
-          dur="6000"
-          repeat="indefinite"
-          easing="linear"
-        ></a-animation>
-      </a-torus>
+    <!-- ============================================ -->
+    <!-- CARA 3 - DERECHA (Verde) -->
+    <!-- ============================================ -->
+    <a-entity id="target-2" mindar-image-target="targetIndex: 2">
+      <a-plane
+        id="face-2"
+        width="1"
+        height="1"
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #33ff33; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
 
-      <a-text
-        value="CARA 5"
-        color="#ff8800"
-        align="center"
-        position="0 1.5 0"
-        scale="2 2 2"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
     </a-entity>
 
-    <!-- CARA 6: OCTAEDRO MORADO -->
-    <a-entity id="target-5" mindar-image-target="targetIndex: 5" visible="true">
-      <a-octahedron
-        color="#cc00ff"
-        position="0 0.5 0"
-        radius="0.5"
-        material="metalness: 0.9; roughness: 0.1;"
-      >
-        <a-animation
-          attribute="rotation"
-          from="0 0 0"
-          to="360 360 360"
-          dur="8000"
-          repeat="indefinite"
-          easing="linear"
-        ></a-animation>
+    <!-- ============================================ -->
+    <!-- CARA 4 - IZQUIERDA (Amarilla) -->
+    <!-- ============================================ -->
+    <a-entity id="target-3" mindar-image-target="targetIndex: 3">
+      <a-plane
+        id="face-3"
+        width="1"
+        height="1"
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #ffff33; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
 
-        <a-animation
-          attribute="position"
-          from="0 0.3 0"
-          to="0 0.7 0"
-          dur="3000"
-          direction="alternate"
-          repeat="indefinite"
-          easing="ease-in-out-sine"
-        ></a-animation>
-      </a-octahedron>
-
-      <a-text
-        value="CARA 6"
-        color="#cc00ff"
-        align="center"
-        position="0 1.5 0"
-        scale="2 2 2"
-        font="https://cdn.aframe.io/fonts/Roboto-msdf.json"
-      ></a-text>
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
     </a-entity>
 
-    <!-- Iluminación optimizada -->
-    <a-light type="ambient" intensity="0.8"></a-light>
-    <a-light type="directional" intensity="1.0" position="1 2 1"></a-light>
-    <a-light type="point" intensity="0.5" position="-1 1 0" color="#ff00ff"></a-light>
+    <!-- ============================================ -->
+    <!-- CARA 5 - SUPERIOR (Magenta) -->
+    <!-- ============================================ -->
+    <a-entity id="target-4" mindar-image-target="targetIndex: 4">
+      <a-plane
+        id="face-4"
+        width="1"
+        height="1"
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #ff33ff; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
 
-    <!-- Cámara -->
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
+    </a-entity>
+
+    <!-- ============================================ -->
+    <!-- CARA 6 - INFERIOR (Cyan) -->
+    <!-- ============================================ -->
+    <a-entity id="target-5" mindar-image-target="targetIndex: 5">
+      <a-plane
+        id="face-5"
+        width="1"
+        height="1"
+        position="0 0 0.001"
+        rotation="0 0 0"
+        material="color: #33ffff; opacity: 0.85; side: double; transparent: true; shader: flat;"
+      ></a-plane>
+
+      <a-plane
+        width="1.02"
+        height="1.02"
+        position="0 0 0"
+        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+      ></a-plane>
+    </a-entity>
+
+    <!-- Iluminación ambiente -->
+    <a-light type="ambient" intensity="1.0"></a-light>
+
+    <!-- Cámara AR -->
     <a-camera
       id="ar-camera"
       look-controls="enabled: false"
@@ -530,49 +464,70 @@
   <!-- UI Overlay -->
   <div id="ui-overlay" style="display:none;">
     <div id="topbar">
-      <span id="logo">🎲 CUBO MÁGICO</span>
-      <div style="display:flex; align-items:center;">
+      <span id="logo">🎲 CUBO AR</span>
+      <div id="status-container">
         <span id="status-dot"></span>
-        <span id="status-text">BUSCANDO CUBO</span>
+        <span id="status-text">BUSCANDO CUBO...</span>
       </div>
     </div>
 
-    <div id="face-indicator">CARA X DETECTADA</div>
+    <div id="face-counter">
+      CARAS VISTAS
+      <span class="number" id="face-count">0/6</span>
+    </div>
 
     <div id="instruction-card">
-      <span class="icon">🎲</span>
-      <p><strong>Apunta a una cara del cubo</strong><br>Cada cara tiene contenido único<br>
-      <small>💡 Tip: Rota el cubo físico para ver las 6 caras diferentes</small></p>
+      <span class="icon">🎯</span>
+      <p>
+        <strong>Apunta a cualquier cara del cubo</strong><br>
+        El color digital se superpondrá sobre la cara física<br>
+        <small>💡 Rota el cubo para ver todas las caras pintarse</small>
+      </p>
+    </div>
+
+    <!-- Debug Panel -->
+    <div id="debug-panel">
+      <div class="line">🔍 DEBUG MODE</div>
+      <div class="line" id="debug-target">Target: none</div>
+      <div class="line" id="debug-tracking">Tracking: 0</div>
+      <div class="line" id="debug-fps">FPS: --</div>
     </div>
   </div>
 
   <!-- ========== LÓGICA PRINCIPAL ========== -->
   <script>
-    let currentFace = null;
-    const faceNames = [
-      'CARA 1: CUBO VERDE',
-      'CARA 2: ESFERA ROJA',
-      'CARA 3: CILINDRO AZUL',
-      'CARA 4: TEXTO 3D',
-      'CARA 5: TORUS NARANJA',
-      'CARA 6: OCTAEDRO MORADO'
-    ];
-    const faceColors = ['#00ff88', '#ff3333', '#3366ff', '#ffff00', '#ff8800', '#cc00ff'];
-    const detectedFaces = new Set();
+    // Estado global
+    const state = {
+      detectedFaces: new Set(),
+      currentFace: null,
+      trackingActive: false,
+      debugMode: false // Cambiar a true para ver debug panel
+    };
 
-    // ========== FORZAR CÁMARA PRINCIPAL ==========
-    (function() {
+    // Configuración de colores por cara
+    const faceConfig = {
+      0: { name: 'FRONTAL', color: '#ff3333', label: 'Roja' },
+      1: { name: 'TRASERA', color: '#3333ff', label: 'Azul' },
+      2: { name: 'DERECHA', color: '#33ff33', label: 'Verde' },
+      3: { name: 'IZQUIERDA', color: '#ffff33', label: 'Amarilla' },
+      4: { name: 'SUPERIOR', color: '#ff33ff', label: 'Magenta' },
+      5: { name: 'INFERIOR', color: '#33ffff', label: 'Cyan' }
+    };
+
+    // ========== INTERCEPTOR DE CÁMARA ==========
+    (function setupCameraInterceptor() {
       const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 
       navigator.mediaDevices.getUserMedia = async function(constraints) {
-        console.log('📹 Solicitando cámara con constraints:', constraints);
+        console.log('📹 Solicitando cámara...');
 
         if (constraints && constraints.video) {
           const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+          const videoDevices = devices.filter(d => d.kind === 'videoinput');
 
-          console.log('📹 Cámaras disponibles:', videoDevices.map(d => d.label || d.deviceId));
+          console.log('📹 Cámaras disponibles:', videoDevices.length);
 
+          // Buscar cámara trasera principal
           const mainBackCamera = videoDevices.find(device => {
             const label = (device.label || '').toLowerCase();
             return label.includes('back') &&
@@ -582,26 +537,29 @@
           });
 
           if (mainBackCamera) {
-            console.log('✅ Usando cámara principal:', mainBackCamera.label || mainBackCamera.deviceId);
+            console.log('✅ Cámara principal encontrada:', mainBackCamera.label);
 
-            if (typeof constraints.video === 'object') {
-              constraints.video.deviceId = { exact: mainBackCamera.deviceId };
-              delete constraints.video.facingMode;
-            } else {
-              constraints.video = {
-                deviceId: { exact: mainBackCamera.deviceId }
-              };
-            }
+            constraints.video = {
+              deviceId: { exact: mainBackCamera.deviceId },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+              frameRate: { ideal: 60, min: 30 }
+            };
 
-            constraints.video.width = { ideal: 1280, min: 640 };
-            constraints.video.height = { ideal: 720, min: 480 };
-            constraints.video.frameRate = { ideal: 30, min: 15 };
-
+            // Autofocus continuo
             constraints.video.advanced = [
               { focusMode: 'continuous' },
               { exposureMode: 'continuous' },
               { whiteBalanceMode: 'continuous' }
             ];
+          } else {
+            console.warn('⚠️ Cámara principal no encontrada, usando por defecto');
+            constraints.video = {
+              facingMode: { exact: 'environment' },
+              width: { ideal: 1920, min: 1280 },
+              height: { ideal: 1080, min: 720 },
+              frameRate: { ideal: 60, min: 30 }
+            };
           }
         }
 
@@ -611,143 +569,203 @@
       console.log('✅ Interceptor de cámara instalado');
     })();
 
+    // ========== INICIAR AR ==========
     async function startAR() {
       try {
-        console.log('🚀 PASO 1: Iniciando MindAR Cubo Mágico...');
+        console.log('🚀 Iniciando sistema AR...');
 
         const permissionScreen = document.getElementById('permission-screen');
         const arScene = document.getElementById('ar-scene');
         const uiOverlay = document.getElementById('ui-overlay');
+        const backBtn = document.getElementById('back-btn');
+        const debugPanel = document.getElementById('debug-panel');
 
+        // Ocultar pantalla de permisos
         permissionScreen.style.display = 'none';
+
+        // Mostrar escena y UI
         arScene.style.display = 'block';
         uiOverlay.style.display = 'block';
+        backBtn.classList.add('show');
 
-        console.log('🚀 PASO 2: Esperando carga de MindAR...');
+        if (state.debugMode) {
+          debugPanel.classList.add('show');
+        }
+
+        console.log('⏳ Esperando carga de A-Frame y MindAR...');
 
         const sceneEl = document.querySelector('a-scene');
 
         if (sceneEl.hasLoaded) {
-          console.log('✅ MindAR ya estaba cargado');
+          console.log('✅ Escena ya cargada');
           initMindAR();
         } else {
-          sceneEl.addEventListener('loaded', function() {
-            console.log('✅ MindAR cargado correctamente');
+          sceneEl.addEventListener('loaded', () => {
+            console.log('✅ Escena cargada');
             initMindAR();
           });
         }
 
       } catch (error) {
-        console.error('❌ Error al iniciar MindAR:', error);
-        alert('Error: No se pudo iniciar MindAR.\n\n' + error.message);
+        console.error('❌ Error al iniciar AR:', error);
+        alert('Error al iniciar AR:\n' + error.message);
 
+        // Volver a pantalla de permisos
         document.getElementById('permission-screen').style.display = 'flex';
         document.getElementById('ar-scene').style.display = 'none';
         document.getElementById('ui-overlay').style.display = 'none';
       }
     }
 
+    // ========== INICIALIZAR MINDAR ==========
     function initMindAR() {
-      console.log('🚀 PASO 3: Iniciando sistema AR del Cubo Mágico...');
+      console.log('🧠 Inicializando MindAR...');
 
       const sceneEl = document.querySelector('a-scene');
       const arSystem = sceneEl.systems['mindar-image-system'];
-      const statusDot = document.getElementById('status-dot');
-      const statusText = document.getElementById('status-text');
-      const faceIndicator = document.getElementById('face-indicator');
-      const instructionCard = document.getElementById('instruction-card');
 
-      // Iniciar MindAR
+      // Iniciar sistema MindAR
       arSystem.start();
-      console.log('✅ Sistema MindAR iniciado con 6 targets');
+      console.log('✅ MindAR iniciado');
 
-      // CRÍTICO: Forzar resize del renderer
+      // Forzar resize del renderer
       setTimeout(() => {
         if (sceneEl.renderer) {
-          const width = window.innerWidth;
-          const height = window.innerHeight;
-          sceneEl.renderer.setSize(width, height, false);
-          console.log(`🔧 Renderer resized: ${width}x${height}`);
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          sceneEl.renderer.setSize(w, h, false);
+          console.log(`📐 Renderer: ${w}x${h}`);
         }
       }, 100);
 
-      // Configurar eventos para cada cara (0-5)
+      // Configurar tracking para cada cara
+      setupFaceTracking();
+
+      console.log('✅ Sistema AR completamente inicializado');
+    }
+
+    // ========== CONFIGURAR TRACKING DE CARAS ==========
+    function setupFaceTracking() {
+      console.log('🎯 Configurando tracking de 6 caras...');
+
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const faceCountEl = document.getElementById('face-count');
+      const instructionCard = document.getElementById('instruction-card');
+
+      // Configurar eventos para cada target (0-5)
       for (let i = 0; i < 6; i++) {
         const targetEntity = document.getElementById(`target-${i}`);
 
         if (!targetEntity) {
-          console.warn(`⚠️ No se encontró target-${i}`);
+          console.warn(`⚠️ Target ${i} no encontrado`);
           continue;
         }
 
-        // Evento: Target detectado
+        // Evento: Target encontrado
         targetEntity.addEventListener('targetFound', () => {
-          console.log(`🎯 ¡CARA ${i + 1} DETECTADA!`);
+          console.log(`✅ CARA ${i} DETECTADA - ${faceConfig[i].name} (${faceConfig[i].label})`);
 
-          currentFace = i;
-          detectedFaces.add(i);
+          state.currentFace = i;
+          state.trackingActive = true;
+          state.detectedFaces.add(i);
 
-          statusDot.classList.add('found');
-          statusText.textContent = `CARA ${i + 1} ACTIVA`;
-
-          // Mostrar indicador de cara
-          faceIndicator.textContent = faceNames[i];
-          faceIndicator.style.background = faceColors[i];
-          faceIndicator.classList.add('show');
+          // Actualizar UI
+          statusDot.classList.add('tracking');
+          statusText.textContent = `CARA ${faceConfig[i].name} (${faceConfig[i].label})`;
+          faceCountEl.textContent = `${state.detectedFaces.size}/6`;
 
           // Actualizar instrucciones
-          instructionCard.querySelector('.icon').textContent = '✅';
-          instructionCard.querySelector('p').innerHTML =
-            `<strong>${faceNames[i]}</strong><br>
-            Caras descubiertas: ${detectedFaces.size}/6<br>
-            <small>🎲 Rota el cubo para ver más caras</small>`;
+          const remaining = 6 - state.detectedFaces.size;
+          if (remaining > 0) {
+            instructionCard.querySelector('p').innerHTML =
+              `<strong>¡Cara ${faceConfig[i].label} detectada!</strong><br>
+              Faltan ${remaining} caras por descubrir<br>
+              <small>🎲 Rota el cubo para ver más caras</small>`;
+          } else {
+            instructionCard.querySelector('.icon').textContent = '🏆';
+            instructionCard.querySelector('p').innerHTML =
+              `<strong>¡CUBO COMPLETO!</strong><br>
+              Has descubierto todas las 6 caras<br>
+              <small>✨ Ahora puedes explorar libremente</small>`;
+          }
 
-          // Forzar visibility
+          // Forzar visibilidad
           targetEntity.setAttribute('visible', true);
 
-          // Ocultar instrucciones después de 2 segundos
-          setTimeout(() => {
-            instructionCard.classList.add('hidden');
-          }, 2000);
-
-          // Si se descubrieron todas las caras
-          if (detectedFaces.size === 6) {
-            setTimeout(() => {
-              faceIndicator.textContent = '🎉 ¡TODAS LAS CARAS DESCUBIERTAS!';
-              faceIndicator.style.background = '#ff00ff';
-
-              instructionCard.classList.remove('hidden');
-              instructionCard.querySelector('.icon').textContent = '🏆';
-              instructionCard.querySelector('p').innerHTML =
-                '<strong>¡Felicidades!</strong><br>Has descubierto las 6 caras del cubo<br><small>✨ Experiencia completa</small>';
-            }, 1000);
+          // Debug
+          if (state.debugMode) {
+            document.getElementById('debug-target').textContent = `Target: ${i} (${faceConfig[i].label})`;
+            document.getElementById('debug-tracking').textContent = `Tracking: ${state.detectedFaces.size}/6`;
           }
+
+          // Auto-ocultar instrucciones
+          setTimeout(() => {
+            if (state.detectedFaces.size < 6) {
+              instructionCard.classList.add('hidden');
+            }
+          }, 2500);
         });
 
         // Evento: Target perdido
         targetEntity.addEventListener('targetLost', () => {
-          console.log(`⚠️ Cara ${i + 1} perdida`);
+          console.log(`⚠️ Cara ${i} perdida`);
 
-          if (currentFace === i) {
-            currentFace = null;
+          if (state.currentFace === i) {
+            state.currentFace = null;
+            state.trackingActive = false;
 
-            statusDot.classList.remove('found');
-            statusText.textContent = 'BUSCANDO CUBO';
+            statusDot.classList.remove('tracking');
+            statusText.textContent = 'BUSCANDO CUBO...';
 
-            faceIndicator.classList.remove('show');
+            if (state.debugMode) {
+              document.getElementById('debug-target').textContent = 'Target: none';
+            }
 
-            instructionCard.classList.remove('hidden');
-            instructionCard.querySelector('.icon').textContent = '🔍';
-            instructionCard.querySelector('p').innerHTML =
-              `<strong>Cubo perdido</strong><br>
-              Vuelve a apuntar a una cara<br>
-              <small>💡 Caras descubiertas: ${detectedFaces.size}/6</small>`;
+            // Mostrar instrucciones si no se completó el cubo
+            if (state.detectedFaces.size < 6) {
+              instructionCard.classList.remove('hidden');
+              instructionCard.querySelector('.icon').textContent = '🔍';
+              instructionCard.querySelector('p').innerHTML =
+                `<strong>Cubo perdido</strong><br>
+                Apunta nuevamente a cualquier cara<br>
+                <small>📊 Progreso: ${state.detectedFaces.size}/6 caras</small>`;
+            }
           }
         });
+
+        console.log(`✅ Target ${i} configurado (${faceConfig[i].label})`);
       }
 
-      console.log('✅ Eventos configurados para las 6 caras del cubo');
+      console.log('✅ Tracking configurado para 6 caras');
+
+      // FPS counter (debug)
+      if (state.debugMode) {
+        let lastTime = Date.now();
+        let frames = 0;
+
+        setInterval(() => {
+          const now = Date.now();
+          const fps = Math.round(frames * 1000 / (now - lastTime));
+          document.getElementById('debug-fps').textContent = `FPS: ${fps}`;
+          frames = 0;
+          lastTime = now;
+        }, 1000);
+
+        const sceneEl = document.querySelector('a-scene');
+        sceneEl.addEventListener('render-target-update', () => {
+          frames++;
+        });
+      }
     }
+
+    // ========== LOG DE INICIO ==========
+    console.log('🎲 Cubo Aumentado AR - Sistema cargado');
+    console.log('📋 Configuración:');
+    console.log('   • 6 caras con colores únicos');
+    console.log('   • Tracking perfecto sobre cubo físico');
+    console.log('   • MindAR Image Tracking');
+    console.log('   • Autofocus continuo habilitado');
   </script>
 
 </body>
