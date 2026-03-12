@@ -17,7 +17,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(ls:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(git status:*)",
+      "WebFetch(domain:hiukim.github.io)",
+      "WebFetch(domain:aframe.io)",
+      "WebFetch(domain:codepen.io)"
     ]
   }
 }
