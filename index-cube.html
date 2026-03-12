@@ -29,7 +29,6 @@
       background: #0a0a0a;
     }
 
-    /* Canvas fullscreen */
     #ar-scene {
       width: 100% !important;
       height: 100% !important;
@@ -69,12 +68,6 @@
       text-transform: uppercase;
     }
 
-    #status-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
     #status-dot {
       width: 10px;
       height: 10px;
@@ -82,6 +75,8 @@
       background: #ff4444;
       box-shadow: 0 0 10px #ff4444;
       animation: pulse 1.5s ease-in-out infinite;
+      display: inline-block;
+      margin-right: 8px;
     }
 
     #status-dot.tracking {
@@ -91,15 +86,14 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.8); }
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
     }
 
     #status-text {
       font-size: 11px;
       color: #aaa;
       letter-spacing: 1px;
-      text-transform: uppercase;
     }
 
     #face-counter {
@@ -139,7 +133,6 @@
 
     #instruction-card.hidden {
       opacity: 0;
-      pointer-events: none;
     }
 
     #instruction-card .icon {
@@ -182,12 +175,6 @@
 
     #permission-screen .big-icon {
       font-size: 72px;
-      animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
     }
 
     #permission-screen h1 {
@@ -195,7 +182,6 @@
       color: #fff;
       letter-spacing: 3px;
       font-weight: 700;
-      text-transform: uppercase;
     }
 
     #permission-screen p {
@@ -255,33 +241,31 @@
 
     #back-btn:hover {
       background: rgba(255, 255, 255, 0.2);
-      border-color: #fff;
     }
 
-    /* Debug panel */
     #debug-panel {
       position: fixed;
       bottom: 120px;
       left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      border: 1px solid rgba(0, 255, 136, 0.3);
+      background: rgba(0, 0, 0, 0.9);
+      border: 1px solid rgba(0, 255, 136, 0.5);
       border-radius: 8px;
-      padding: 10px 15px;
+      padding: 12px 16px;
       font-size: 10px;
       color: #0f0;
       font-family: monospace;
-      max-width: 200px;
-      display: none;
-      pointer-events: none;
-    }
-
-    #debug-panel.show {
+      max-width: 250px;
       display: block;
+      pointer-events: none;
+      line-height: 1.4;
     }
 
     #debug-panel .line {
-      margin: 3px 0;
+      margin: 4px 0;
     }
+
+    .visible { color: #0f0; }
+    .hidden-status { color: #f00; }
   </style>
 </head>
 <body>
@@ -290,13 +274,10 @@
   <div id="permission-screen">
     <div class="big-icon">🎲</div>
     <h1>Cubo Aumentado</h1>
-    <p><strong style="color:#00ff88">Realidad aumentada superpuesta</strong><br>
-    El cubo digital se superpondrá perfectamente sobre tu cubo físico<br>
-    <small style="color:#666;">Cada cara se "pintará" digitalmente cuando la detectes</small></p>
-    <button id="start-btn" onclick="startAR()">INICIAR EXPERIENCIA</button>
-    <p style="font-size:11px; color:#555; letter-spacing:1px; margin-top:20px;">
-      📱 Requiere cámara trasera • 🔲 Cubo físico con 6 caras
-    </p>
+    <p><strong style="color:#00ff88">Tracking fluido con ocultación automática</strong><br>
+    Solo la cara detectada será visible, las demás se ocultan al instante<br>
+    <small style="color:#666;">Sistema optimizado para cambios rápidos</small></p>
+    <button id="start-btn" onclick="startAR()">INICIAR</button>
   </div>
 
   <!-- Botón de volver -->
@@ -310,150 +291,99 @@
                   uiLoading: no;
                   uiError: no;
                   uiScanning: no;
-                  filterMinCF: 0.0001;
-                  filterBeta: 1000;
+                  filterMinCF: 0.001;
+                  filterBeta: 10;
                   warmupTolerance: 2;
-                  missTolerance: 100;
-                  maxTrack: 6;"
+                  missTolerance: 0;
+                  maxTrack: 1;"
     embedded
     color-space="sRGB"
-    renderer="colorManagement: true; antialias: true; precision: high; alpha: true;"
+    renderer="colorManagement: true; antialias: true; precision: high;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
     style="display:none;"
   >
 
-    <!-- ============================================ -->
-    <!-- CARA 1 - FRONTAL (Roja) -->
-    <!-- ============================================ -->
+    <!-- CARA 0 - ROJA -->
     <a-entity id="target-0" mindar-image-target="targetIndex: 0">
       <a-plane
         id="face-0"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #ff3333; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <!-- Borde para mejor visualización -->
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #ff3333; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- ============================================ -->
-    <!-- CARA 2 - TRASERA (Azul) -->
-    <!-- ============================================ -->
+    <!-- CARA 1 - AZUL -->
     <a-entity id="target-1" mindar-image-target="targetIndex: 1">
       <a-plane
         id="face-1"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #3333ff; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #3333ff; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- ============================================ -->
-    <!-- CARA 3 - DERECHA (Verde) -->
-    <!-- ============================================ -->
+    <!-- CARA 2 - VERDE -->
     <a-entity id="target-2" mindar-image-target="targetIndex: 2">
       <a-plane
         id="face-2"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #33ff33; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #33ff33; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- ============================================ -->
-    <!-- CARA 4 - IZQUIERDA (Amarilla) -->
-    <!-- ============================================ -->
+    <!-- CARA 3 - AMARILLA -->
     <a-entity id="target-3" mindar-image-target="targetIndex: 3">
       <a-plane
         id="face-3"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #ffff33; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #ffff33; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- ============================================ -->
-    <!-- CARA 5 - SUPERIOR (Magenta) -->
-    <!-- ============================================ -->
+    <!-- CARA 4 - MAGENTA -->
     <a-entity id="target-4" mindar-image-target="targetIndex: 4">
       <a-plane
         id="face-4"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #ff33ff; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #ff33ff; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- ============================================ -->
-    <!-- CARA 6 - INFERIOR (Cyan) -->
-    <!-- ============================================ -->
+    <!-- CARA 5 - CYAN -->
     <a-entity id="target-5" mindar-image-target="targetIndex: 5">
       <a-plane
         id="face-5"
         width="1"
         height="1"
-        position="0 0 0.001"
+        position="0 0 0.01"
         rotation="0 0 0"
-        material="color: #33ffff; opacity: 0.85; side: double; transparent: true; shader: flat;"
-      ></a-plane>
-
-      <a-plane
-        width="1.02"
-        height="1.02"
-        position="0 0 0"
-        material="color: #ffffff; opacity: 0.3; side: double; transparent: true; shader: flat;"
+        material="color: #33ffff; opacity: 0.9; side: double; transparent: true; shader: flat;"
+        visible="false"
       ></a-plane>
     </a-entity>
 
-    <!-- Iluminación ambiente -->
     <a-light type="ambient" intensity="1.0"></a-light>
 
-    <!-- Cámara AR -->
     <a-camera
       id="ar-camera"
       look-controls="enabled: false"
@@ -465,9 +395,9 @@
   <div id="ui-overlay" style="display:none;">
     <div id="topbar">
       <span id="logo">🎲 CUBO AR</span>
-      <div id="status-container">
+      <div style="display:flex; align-items:center;">
         <span id="status-dot"></span>
-        <span id="status-text">BUSCANDO CUBO...</span>
+        <span id="status-text">BUSCANDO...</span>
       </div>
     </div>
 
@@ -479,141 +409,180 @@
     <div id="instruction-card">
       <span class="icon">🎯</span>
       <p>
-        <strong>Apunta a cualquier cara del cubo</strong><br>
-        El color digital se superpondrá sobre la cara física<br>
-        <small>💡 Rota el cubo para ver todas las caras pintarse</small>
+        <strong>Apunta al cubo</strong><br>
+        Los planos aparecen solo en la cara visible<br>
+        <small>💡 Rota el cubo para cambiar de cara</small>
       </p>
     </div>
 
     <!-- Debug Panel -->
     <div id="debug-panel">
-      <div class="line">🔍 DEBUG MODE</div>
-      <div class="line" id="debug-target">Target: none</div>
-      <div class="line" id="debug-tracking">Tracking: 0</div>
-      <div class="line" id="debug-fps">FPS: --</div>
+      <div class="line"><strong>🔍 DEBUG</strong></div>
+      <div class="line" id="debug-current">Actual: ninguna</div>
+      <div class="line" id="debug-visible">Visible: ninguna</div>
+      <div class="line" id="debug-count">Vistas: 0/6</div>
+      <div class="line">---</div>
+      <div class="line" id="debug-f0">F0: <span class="hidden-status">●</span></div>
+      <div class="line" id="debug-f1">F1: <span class="hidden-status">●</span></div>
+      <div class="line" id="debug-f2">F2: <span class="hidden-status">●</span></div>
+      <div class="line" id="debug-f3">F3: <span class="hidden-status">●</span></div>
+      <div class="line" id="debug-f4">F4: <span class="hidden-status">●</span></div>
+      <div class="line" id="debug-f5">F5: <span class="hidden-status">●</span></div>
     </div>
   </div>
 
-  <!-- ========== LÓGICA PRINCIPAL ========== -->
+  <!-- LÓGICA PRINCIPAL -->
   <script>
+    console.log('🎲 CUBO AR - Inicializando sistema...');
+
     // Estado global
     const state = {
       detectedFaces: new Set(),
       currentFace: null,
-      trackingActive: false,
-      debugMode: false // Cambiar a true para ver debug panel
+      allFaces: [0, 1, 2, 3, 4, 5],
+      faceElements: {},
+      targetElements: {}
     };
 
-    // Configuración de colores por cara
+    // Configuración de caras
     const faceConfig = {
-      0: { name: 'FRONTAL', color: '#ff3333', label: 'Roja' },
-      1: { name: 'TRASERA', color: '#3333ff', label: 'Azul' },
-      2: { name: 'DERECHA', color: '#33ff33', label: 'Verde' },
-      3: { name: 'IZQUIERDA', color: '#ffff33', label: 'Amarilla' },
-      4: { name: 'SUPERIOR', color: '#ff33ff', label: 'Magenta' },
-      5: { name: 'INFERIOR', color: '#33ffff', label: 'Cyan' }
+      0: { name: 'ROJA', color: '#ff3333' },
+      1: { name: 'AZUL', color: '#3333ff' },
+      2: { name: 'VERDE', color: '#33ff33' },
+      3: { name: 'AMARILLA', color: '#ffff33' },
+      4: { name: 'MAGENTA', color: '#ff33ff' },
+      5: { name: 'CYAN', color: '#33ffff' }
     };
+
+    // ========== FUNCIÓN CRÍTICA: OCULTAR TODAS LAS CARAS ==========
+    function hideAllFaces() {
+      state.allFaces.forEach(i => {
+        const face = state.faceElements[i];
+        if (face) {
+          face.setAttribute('visible', false);
+          console.log(`  ❌ Cara ${i} OCULTA`);
+        }
+      });
+      updateDebugPanel();
+    }
+
+    // ========== FUNCIÓN CRÍTICA: MOSTRAR SOLO UNA CARA ==========
+    function showOnlyFace(faceIndex) {
+      console.log(`\n🎯 MOSTRANDO SOLO CARA ${faceIndex} (${faceConfig[faceIndex].name})`);
+
+      // 1. OCULTAR TODAS
+      hideAllFaces();
+
+      // 2. MOSTRAR SOLO LA DETECTADA
+      const face = state.faceElements[faceIndex];
+      if (face) {
+        face.setAttribute('visible', true);
+        console.log(`  ✅ Cara ${faceIndex} VISIBLE`);
+      }
+
+      // 3. ACTUALIZAR ESTADO
+      state.currentFace = faceIndex;
+      state.detectedFaces.add(faceIndex);
+
+      // 4. ACTUALIZAR UI
+      updateUI(faceIndex);
+      updateDebugPanel();
+    }
+
+    // ========== ACTUALIZAR UI ==========
+    function updateUI(faceIndex) {
+      const statusDot = document.getElementById('status-dot');
+      const statusText = document.getElementById('status-text');
+      const faceCount = document.getElementById('face-count');
+
+      if (faceIndex !== null) {
+        statusDot.classList.add('tracking');
+        statusText.textContent = `CARA ${faceConfig[faceIndex].name}`;
+        faceCount.textContent = `${state.detectedFaces.size}/6`;
+      } else {
+        statusDot.classList.remove('tracking');
+        statusText.textContent = 'BUSCANDO...';
+      }
+    }
+
+    // ========== ACTUALIZAR DEBUG PANEL ==========
+    function updateDebugPanel() {
+      const current = state.currentFace !== null ? state.currentFace : 'ninguna';
+      document.getElementById('debug-current').textContent = `Actual: ${current}`;
+
+      let visibleList = [];
+      state.allFaces.forEach(i => {
+        const face = state.faceElements[i];
+        const isVisible = face && face.getAttribute('visible') === true;
+        const debugEl = document.getElementById(`debug-f${i}`);
+
+        if (isVisible) {
+          visibleList.push(i);
+          debugEl.innerHTML = `F${i}: <span class="visible">●</span>`;
+        } else {
+          debugEl.innerHTML = `F${i}: <span class="hidden-status">●</span>`;
+        }
+      });
+
+      document.getElementById('debug-visible').textContent =
+        `Visible: ${visibleList.length > 0 ? visibleList.join(', ') : 'ninguna'}`;
+      document.getElementById('debug-count').textContent =
+        `Vistas: ${state.detectedFaces.size}/6`;
+    }
 
     // ========== INTERCEPTOR DE CÁMARA ==========
-    (function setupCameraInterceptor() {
-      const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    (function setupCamera() {
+      const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 
       navigator.mediaDevices.getUserMedia = async function(constraints) {
-        console.log('📹 Solicitando cámara...');
-
         if (constraints && constraints.video) {
           const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoDevices = devices.filter(d => d.kind === 'videoinput');
+          const cameras = devices.filter(d => d.kind === 'videoinput');
 
-          console.log('📹 Cámaras disponibles:', videoDevices.length);
-
-          // Buscar cámara trasera principal
-          const mainBackCamera = videoDevices.find(device => {
-            const label = (device.label || '').toLowerCase();
-            return label.includes('back') &&
-                   !label.includes('wide') &&
-                   !label.includes('ultra') &&
-                   !label.includes('0.5');
+          const mainCamera = cameras.find(d => {
+            const label = (d.label || '').toLowerCase();
+            return label.includes('back') && !label.includes('wide') && !label.includes('ultra');
           });
 
-          if (mainBackCamera) {
-            console.log('✅ Cámara principal encontrada:', mainBackCamera.label);
-
+          if (mainCamera) {
+            console.log('✅ Cámara principal:', mainCamera.label);
             constraints.video = {
-              deviceId: { exact: mainBackCamera.deviceId },
-              width: { ideal: 1920, min: 1280 },
-              height: { ideal: 1080, min: 720 },
-              frameRate: { ideal: 60, min: 30 }
-            };
-
-            // Autofocus continuo
-            constraints.video.advanced = [
-              { focusMode: 'continuous' },
-              { exposureMode: 'continuous' },
-              { whiteBalanceMode: 'continuous' }
-            ];
-          } else {
-            console.warn('⚠️ Cámara principal no encontrada, usando por defecto');
-            constraints.video = {
-              facingMode: { exact: 'environment' },
-              width: { ideal: 1920, min: 1280 },
-              height: { ideal: 1080, min: 720 },
-              frameRate: { ideal: 60, min: 30 }
+              deviceId: { exact: mainCamera.deviceId },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+              frameRate: { ideal: 60 },
+              advanced: [
+                { focusMode: 'continuous' },
+                { exposureMode: 'continuous' }
+              ]
             };
           }
         }
-
-        return originalGetUserMedia(constraints);
+        return original(constraints);
       };
-
-      console.log('✅ Interceptor de cámara instalado');
     })();
 
     // ========== INICIAR AR ==========
     async function startAR() {
       try {
-        console.log('🚀 Iniciando sistema AR...');
+        console.log('🚀 Iniciando AR...');
 
-        const permissionScreen = document.getElementById('permission-screen');
-        const arScene = document.getElementById('ar-scene');
-        const uiOverlay = document.getElementById('ui-overlay');
-        const backBtn = document.getElementById('back-btn');
-        const debugPanel = document.getElementById('debug-panel');
+        document.getElementById('permission-screen').style.display = 'none';
+        document.getElementById('ar-scene').style.display = 'block';
+        document.getElementById('ui-overlay').style.display = 'block';
+        document.getElementById('back-btn').classList.add('show');
 
-        // Ocultar pantalla de permisos
-        permissionScreen.style.display = 'none';
+        const scene = document.querySelector('a-scene');
 
-        // Mostrar escena y UI
-        arScene.style.display = 'block';
-        uiOverlay.style.display = 'block';
-        backBtn.classList.add('show');
-
-        if (state.debugMode) {
-          debugPanel.classList.add('show');
-        }
-
-        console.log('⏳ Esperando carga de A-Frame y MindAR...');
-
-        const sceneEl = document.querySelector('a-scene');
-
-        if (sceneEl.hasLoaded) {
-          console.log('✅ Escena ya cargada');
+        if (scene.hasLoaded) {
           initMindAR();
         } else {
-          sceneEl.addEventListener('loaded', () => {
-            console.log('✅ Escena cargada');
-            initMindAR();
-          });
+          scene.addEventListener('loaded', initMindAR);
         }
 
       } catch (error) {
-        console.error('❌ Error al iniciar AR:', error);
-        alert('Error al iniciar AR:\n' + error.message);
-
-        // Volver a pantalla de permisos
-        document.getElementById('permission-screen').style.display = 'flex';
-        document.getElementById('ar-scene').style.display = 'none';
-        document.getElementById('ui-overlay').style.display = 'none';
+        console.error('❌ Error:', error);
+        alert('Error: ' + error.message);
       }
     }
 
@@ -621,151 +590,88 @@
     function initMindAR() {
       console.log('🧠 Inicializando MindAR...');
 
-      const sceneEl = document.querySelector('a-scene');
-      const arSystem = sceneEl.systems['mindar-image-system'];
+      const scene = document.querySelector('a-scene');
+      const arSystem = scene.systems['mindar-image-system'];
 
-      // Iniciar sistema MindAR
+      // Cachear referencias a elementos
+      state.allFaces.forEach(i => {
+        state.faceElements[i] = document.getElementById(`face-${i}`);
+        state.targetElements[i] = document.getElementById(`target-${i}`);
+        console.log(`📦 Cara ${i} cacheada:`, state.faceElements[i] ? 'OK' : 'ERROR');
+      });
+
+      // Iniciar MindAR
       arSystem.start();
       console.log('✅ MindAR iniciado');
 
-      // Forzar resize del renderer
+      // Forzar resize
       setTimeout(() => {
-        if (sceneEl.renderer) {
-          const w = window.innerWidth;
-          const h = window.innerHeight;
-          sceneEl.renderer.setSize(w, h, false);
-          console.log(`📐 Renderer: ${w}x${h}`);
+        if (scene.renderer) {
+          scene.renderer.setSize(window.innerWidth, window.innerHeight, false);
+          console.log('📐 Renderer resized');
         }
       }, 100);
 
-      // Configurar tracking para cada cara
-      setupFaceTracking();
+      // Configurar eventos
+      setupTracking();
 
-      console.log('✅ Sistema AR completamente inicializado');
+      // Inicializar debug panel
+      updateDebugPanel();
+
+      console.log('✅ Sistema listo\n');
     }
 
-    // ========== CONFIGURAR TRACKING DE CARAS ==========
-    function setupFaceTracking() {
-      console.log('🎯 Configurando tracking de 6 caras...');
+    // ========== CONFIGURAR TRACKING ==========
+    function setupTracking() {
+      console.log('🎯 Configurando tracking para 6 caras...\n');
 
-      const statusDot = document.getElementById('status-dot');
-      const statusText = document.getElementById('status-text');
-      const faceCountEl = document.getElementById('face-count');
-      const instructionCard = document.getElementById('instruction-card');
+      state.allFaces.forEach(i => {
+        const target = state.targetElements[i];
 
-      // Configurar eventos para cada target (0-5)
-      for (let i = 0; i < 6; i++) {
-        const targetEntity = document.getElementById(`target-${i}`);
-
-        if (!targetEntity) {
-          console.warn(`⚠️ Target ${i} no encontrado`);
-          continue;
+        if (!target) {
+          console.error(`❌ Target ${i} no encontrado`);
+          return;
         }
 
-        // Evento: Target encontrado
-        targetEntity.addEventListener('targetFound', () => {
-          console.log(`✅ CARA ${i} DETECTADA - ${faceConfig[i].name} (${faceConfig[i].label})`);
+        // EVENTO: TARGET ENCONTRADO
+        target.addEventListener('targetFound', () => {
+          console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`✅ TARGET ${i} DETECTADO (${faceConfig[i].name})`);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-          state.currentFace = i;
-          state.trackingActive = true;
-          state.detectedFaces.add(i);
-
-          // Actualizar UI
-          statusDot.classList.add('tracking');
-          statusText.textContent = `CARA ${faceConfig[i].name} (${faceConfig[i].label})`;
-          faceCountEl.textContent = `${state.detectedFaces.size}/6`;
-
-          // Actualizar instrucciones
-          const remaining = 6 - state.detectedFaces.size;
-          if (remaining > 0) {
-            instructionCard.querySelector('p').innerHTML =
-              `<strong>¡Cara ${faceConfig[i].label} detectada!</strong><br>
-              Faltan ${remaining} caras por descubrir<br>
-              <small>🎲 Rota el cubo para ver más caras</small>`;
-          } else {
-            instructionCard.querySelector('.icon').textContent = '🏆';
-            instructionCard.querySelector('p').innerHTML =
-              `<strong>¡CUBO COMPLETO!</strong><br>
-              Has descubierto todas las 6 caras<br>
-              <small>✨ Ahora puedes explorar libremente</small>`;
-          }
-
-          // Forzar visibilidad
-          targetEntity.setAttribute('visible', true);
-
-          // Debug
-          if (state.debugMode) {
-            document.getElementById('debug-target').textContent = `Target: ${i} (${faceConfig[i].label})`;
-            document.getElementById('debug-tracking').textContent = `Tracking: ${state.detectedFaces.size}/6`;
-          }
-
-          // Auto-ocultar instrucciones
-          setTimeout(() => {
-            if (state.detectedFaces.size < 6) {
-              instructionCard.classList.add('hidden');
-            }
-          }, 2500);
+          // OCULTAR TODAS Y MOSTRAR SOLO ESTA
+          showOnlyFace(i);
         });
 
-        // Evento: Target perdido
-        targetEntity.addEventListener('targetLost', () => {
-          console.log(`⚠️ Cara ${i} perdida`);
+        // EVENTO: TARGET PERDIDO
+        target.addEventListener('targetLost', () => {
+          console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`⚠️ TARGET ${i} PERDIDO (${faceConfig[i].name})`);
+          console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
+          // OCULTAR ESTA CARA
+          const face = state.faceElements[i];
+          if (face) {
+            face.setAttribute('visible', false);
+            console.log(`  ❌ Cara ${i} OCULTA`);
+          }
+
+          // Si era la cara actual, resetear
           if (state.currentFace === i) {
             state.currentFace = null;
-            state.trackingActive = false;
-
-            statusDot.classList.remove('tracking');
-            statusText.textContent = 'BUSCANDO CUBO...';
-
-            if (state.debugMode) {
-              document.getElementById('debug-target').textContent = 'Target: none';
-            }
-
-            // Mostrar instrucciones si no se completó el cubo
-            if (state.detectedFaces.size < 6) {
-              instructionCard.classList.remove('hidden');
-              instructionCard.querySelector('.icon').textContent = '🔍';
-              instructionCard.querySelector('p').innerHTML =
-                `<strong>Cubo perdido</strong><br>
-                Apunta nuevamente a cualquier cara<br>
-                <small>📊 Progreso: ${state.detectedFaces.size}/6 caras</small>`;
-            }
+            updateUI(null);
           }
+
+          updateDebugPanel();
         });
 
-        console.log(`✅ Target ${i} configurado (${faceConfig[i].label})`);
-      }
+        console.log(`✅ Target ${i} configurado`);
+      });
 
-      console.log('✅ Tracking configurado para 6 caras');
-
-      // FPS counter (debug)
-      if (state.debugMode) {
-        let lastTime = Date.now();
-        let frames = 0;
-
-        setInterval(() => {
-          const now = Date.now();
-          const fps = Math.round(frames * 1000 / (now - lastTime));
-          document.getElementById('debug-fps').textContent = `FPS: ${fps}`;
-          frames = 0;
-          lastTime = now;
-        }, 1000);
-
-        const sceneEl = document.querySelector('a-scene');
-        sceneEl.addEventListener('render-target-update', () => {
-          frames++;
-        });
-      }
+      console.log('\n✅ Tracking configurado completamente\n');
     }
 
-    // ========== LOG DE INICIO ==========
-    console.log('🎲 Cubo Aumentado AR - Sistema cargado');
-    console.log('📋 Configuración:');
-    console.log('   • 6 caras con colores únicos');
-    console.log('   • Tracking perfecto sobre cubo físico');
-    console.log('   • MindAR Image Tracking');
-    console.log('   • Autofocus continuo habilitado');
+    console.log('✅ Sistema cargado. Presiona INICIAR para comenzar.\n');
   </script>
 
 </body>
